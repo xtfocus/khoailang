@@ -8,12 +8,21 @@ This document explains the authentication and authorization system implemented i
 
 ### 1. Password Security
 Located in `backend/app/dependencies/auth.py`:
-- Uses `passlib` with `bcrypt` for secure password hashing
+- Uses `bcrypt` directly for secure password hashing and verification
 - Passwords are never stored in plain text
-- Password verification is handled through secure comparison
+- Password verification is handled through secure comparison using bcrypt's checkpw
 
 ```python
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Example password hashing
+pwd_bytes = password.encode('utf-8')
+salt = bcrypt.gensalt()
+hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
+
+# Example password verification
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    password_byte_enc = plain_password.encode('utf-8')
+    hashed_password_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_byte_enc, hashed_password_bytes)
 ```
 
 About salt:
@@ -78,6 +87,14 @@ All protected endpoints use the `get_current_user` dependency:
 - Validates token signature and expiration
 - Retrieves current user from database
 - Raises 401 Unauthorized if invalid
+
+For endpoints that can work with or without authentication, use `get_current_user_optional`:
+```python
+@router.post("/signup")
+def signup(user: UserCreate, current_user: User | None = Depends(get_current_user_optional)):
+    # Function can handle both authenticated and unauthenticated requests
+    # current_user will be None if no valid token is provided
+```
 
 Example protected route:
 ```python
@@ -162,7 +179,7 @@ admin_user = User(
 
 **Note**: Change these default credentials in production!
 
-## Future Security Enhancements
+## Future Security Enhancements (In a far distant future)
 
 1. **Rate Limiting**:
    - Implement request rate limiting

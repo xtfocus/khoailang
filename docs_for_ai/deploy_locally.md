@@ -16,20 +16,25 @@ cd cerego
 ```
 
 2. **Environment Variables**
-Create a `.env` file in the root directory based on `.env.example`:
+Create a `.env` file in the root directory:
 ```env
+# Database Configuration
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password
 POSTGRES_DB=cerego
 
+# JWT Configuration 
 JWT_SECRET_KEY=your-super-secret-key-change-this-in-production
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 
+# Admin account for initial setup
 ADMIN_EMAIL=your_admin_email@example.com
 ADMIN_USERNAME=your_admin_username
 ADMIN_PASSWORD=your_secure_password
 ```
+
+These environment variables are used by both the backend service and the database container.
 
 ## Starting the Application
 
@@ -95,22 +100,45 @@ curl -X 'POST' \
   }'
 ```
 
-2. **Login**
+2. **Login (Using form-encoded data)**
 ```bash
 curl -X 'POST' \
   'http://localhost:8000/auth/login' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123"
-  }'
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'username=test@example.com&password=password123'
 ```
+
+Note: For login, use `application/x-www-form-urlencoded` format as shown above, not JSON. The username field expects an email address.
 
 3. **Get User Profile (Protected Route)**
 ```bash
 curl -X 'GET' \
   'http://localhost:8000/auth/me' \
   -H 'Authorization: Bearer <your-jwt-token>'
+```
+
+### Waitlist System
+
+The application includes a waitlist system for new user registrations:
+
+1. **Submit to Waitlist**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/auth/waitlist' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Test User",
+    "email": "test@example.com",
+    "password": "password123",
+    "reason": "Interested in learning languages"
+  }'
+```
+
+2. **Admin Approve Waitlist Entry**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/auth/waitlist/{entry_id}/approve' \
+  -H 'Authorization: Bearer <admin-token>'
 ```
 
 ## Development Workflow
