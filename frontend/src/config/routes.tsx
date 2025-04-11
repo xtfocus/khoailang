@@ -4,6 +4,7 @@ import { SignupForm } from '../components/SignupForm';
 import WaitlistForm from '../components/WaitlistForm';
 import { AdminWelcomeScreen } from '../components/AdminWelcomeScreen';
 import { WaitlistManager } from '../components/WaitlistManager';
+import { UserManager } from '../components/UserManager';
 import { Dashboard } from '../components/Dashboard';
 import { AdminLayout } from '../components/layouts/AdminLayout';
 import { useAuth } from '../contexts/AuthContext';
@@ -72,6 +73,13 @@ export const routes: RouteConfig[] = [
         title: 'Waitlist Management',
         description: 'Manage waitlist applications',
         breadcrumb: 'Admin > Waitlist'
+      },
+      {
+        path: 'users',
+        element: <UserManager />,
+        title: 'User Management',
+        description: 'Manage system users',
+        breadcrumb: 'Admin > Users'
       }
     ]
   },

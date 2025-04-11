@@ -14,7 +14,7 @@ export function AdminWelcomeScreen() {
         navigate('/admin/waitlist');
         break;
       case 'users':
-        // To be implemented
+        navigate('/admin/users');
         break;
       case 'profile':
         // To be implemented

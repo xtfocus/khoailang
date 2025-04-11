@@ -18,7 +18,8 @@ import os
 from dotenv import load_dotenv
 
 from app.database import Base, engine
-from app.models.user import User, Waitlist
+from app.models.user import User
+from app.models.waitlist import Waitlist
 from app.models.quiz import Quiz, QuizType
 from app.models.flashcard import Flashcard, UserFlashcard
 from app.models.chat import ChatbotInteraction, Language

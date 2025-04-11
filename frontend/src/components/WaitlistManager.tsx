@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface WaitlistEntry {
@@ -56,6 +56,31 @@ export function WaitlistManager() {
       fetchWaitlist();
     } catch (err) {
       setError('Failed to approve entry');
+    }
+  };
+
+  const deleteEntry = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this waitlist entry?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/auth/waitlist/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to delete entry');
+      }
+
+      // Remove the entry from the local state
+      setEntries(entries.filter(entry => entry.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete entry');
     }
   };
 
@@ -121,15 +146,24 @@ export function WaitlistManager() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {!entry.approved && (
+                    <div className="flex justify-end gap-4">
+                      {!entry.approved && (
+                        <button
+                          onClick={() => approveEntry(entry.id)}
+                          className="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
+                        >
+                          <Check className="w-4 h-4" />
+                          Approve
+                        </button>
+                      )}
                       <button
-                        onClick={() => approveEntry(entry.id)}
-                        className="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
+                        onClick={() => deleteEntry(entry.id)}
+                        className="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
                       >
-                        <Check className="w-4 h-4" />
-                        Approve
+                        <Trash2 className="w-4 h-4" />
+                        Delete
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}

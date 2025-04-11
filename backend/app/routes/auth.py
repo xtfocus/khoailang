@@ -178,6 +178,26 @@ def get_waitlist_status(email: str, db: Session = Depends(get_db)):
         )
     return {"email": entry.email, "approved": entry.approved}
 
+@router.delete("/waitlist/{entry_id}")
+def delete_waitlist_entry(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Allow admins to delete a waitlist entry."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can delete waitlist entries."
+        )
+
+    entry = db.query(Waitlist).filter(Waitlist.id == entry_id).first()
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Waitlist entry not found."
+        )
+
+    db.delete(entry)
+    db.commit()
+    return {"message": "Waitlist entry deleted successfully."}
+
 app = FastAPI()
 
 @app.exception_handler(RequestValidationError)

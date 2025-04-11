@@ -18,14 +18,3 @@ class User(Base):
 
     flashcards = relationship("UserFlashcard", back_populates="user")
     chat_interactions = relationship("ChatbotInteraction", back_populates="user")
-
-class Waitlist(Base):
-    __tablename__ = "waitlist"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
-    reason = Column(String, nullable=True)
-    password = Column(String, nullable=False)  # Store hashed password
-    approved = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
