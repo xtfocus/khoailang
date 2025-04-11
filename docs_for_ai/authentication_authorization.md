@@ -147,59 +147,53 @@ Regular users can:
 
 1. **Password Security**:
    - Secure hashing with bcrypt
-   - No plain text password storage
-   - Password strength validation (to be implemented)
+   - Salt generation and secure storage
+   - Hashed passwords never exposed in responses
 
 2. **Token Security**:
    - Short-lived access tokens (30 minutes)
    - Secure token generation and validation
    - Token-based session management
+   - Invalidation on logout
 
 3. **Error Handling**:
    - Generic error messages for security
    - No sensitive information in responses
+   - Custom exception handlers for validation
    - Proper HTTP status codes
 
 4. **Database Security**:
    - Prepared statements via SQLAlchemy
    - Input validation using Pydantic
    - Secure password storage
+   - Protected database credentials
+
+## Future Security Enhancements
+
+1. **Password Security**:
+   - Implement password strength requirements
+   - Add rate limiting for login attempts
+   - Implement account lockout after failed attempts
+
+2. **Frontend Security**:
+   - Add CSRF protection
+   - Implement secure token storage
+   - Add additional XSS prevention measures
+   - Implement secure session management
 
 ## Initial Setup
 
 The system automatically creates an admin user during database initialization (`backend/app/init_db.py`):
 ```python
 admin_user = User(
-    email="admin@example.com",
-    username="admin",
-    hashed_password=get_password_hash("admin123"),
+    email=ADMIN_EMAIL,
+    username=ADMIN_USERNAME,
+    hashed_password=get_password_hash(ADMIN_PASSWORD),
     is_admin=True
 )
 ```
 
-**Note**: Change these default credentials in production!
-
-## Future Security Enhancements (In a far distant future)
-
-1. **Rate Limiting**:
-   - Implement request rate limiting
-   - Prevent brute force attacks
-   - Add API usage monitoring
-
-2. **Refresh Tokens**:
-   - Add refresh token support
-   - Implement token rotation
-   - Enhance session management
-
-3. **Password Security**:
-   - Add password strength requirements
-   - Implement password reset flow
-   - Add two-factor authentication
-
-4. **Audit Logging**:
-   - Log security events
-   - Track user actions
-   - Monitor suspicious activities
+**Note**: Admin credentials should be securely set via environment variables in production.
 
 ## File References
 
@@ -209,3 +203,5 @@ Key security-related files:
 - `backend/app/routes/auth.py`: Authentication endpoints
 - `backend/app/schemas/user.py`: Request/response models
 - `backend/app/init_db.py`: Initial admin user setup
+- `frontend/src/contexts/AuthContext.tsx`: Frontend auth state management
+- `frontend/src/components/routing/ProtectedRoute.tsx`: Route protection

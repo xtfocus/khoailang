@@ -77,6 +77,8 @@ The database schema includes the following key tables:
 - **`quizzes`**: Tracks quiz attempts and results.
 - **`chatbot_interactions`**: Logs user interactions with the chatbot.
 - **`languages`**: Stores supported languages for flashcards and user preferences.
+- **`waitlist`**: Stores pending user registrations
+
 
 To check the schema of specific tables, use the script:
 ```bash
@@ -230,7 +232,6 @@ cat backup.sql | docker-compose exec -T db psql -U postgres -d cerego
 - Default credentials in `.env` are for development only.
 - JWT secret key should be changed in production.
 - Database passwords should be strong in production.
-- Consider implementing rate limiting for authentication endpoints.
 - Enable HTTPS in production.
 
 ## Monitoring
