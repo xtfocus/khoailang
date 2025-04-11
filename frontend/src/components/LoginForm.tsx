@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-export function LoginForm({ onLogin }: { onLogin: (token: string) => void }) {
+export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { login, isAdmin, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAdmin !== null) {
+      navigate(isAdmin ? '/admin' : '/dashboard');
+    }
+  }, [isAdmin, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +36,10 @@ export function LoginForm({ onLogin }: { onLogin: (token: string) => void }) {
       }
 
       const data = await response.json();
-      onLogin(data.access_token);
+      await login(data.access_token);
     } catch (err) {
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during login';
+      setError(errorMessage);
     }
   };
 
