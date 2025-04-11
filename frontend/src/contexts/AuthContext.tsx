@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+interface UserProfile {
+  email: string;
+  username: string | null;
+  is_admin: boolean;
+}
+
 interface AuthContextType {
   token: string | null;
   isAdmin: boolean | null;
   isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
+  userProfile: UserProfile | null;
   login: (token: string) => Promise<void>;
   logout: () => void;
 }
@@ -18,29 +25,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const fetchUserRole = async (tokenToUse: string) => {
+  const fetchUserProfile = async (tokenToUse: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/auth/me/is_admin', {
+      const response = await fetch('/auth/me', {
         headers: {
           Authorization: `Bearer ${tokenToUse}`,
         },
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch admin status');
+        throw new Error('Failed to fetch user profile');
       }
       
-      const data = await response.json();
-      setIsAdmin(data === true);
+      const profile = await response.json();
+      setUserProfile(profile);
+      setIsAdmin(profile.is_admin);
     } catch (error) {
-      console.error('[Auth] Error fetching user role:', error);
+      console.error('[Auth] Error fetching user profile:', error);
       setError('Failed to authenticate user');
       localStorage.removeItem('token');
       setToken(null);
       setIsAdmin(null);
+      setUserProfile(null);
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
@@ -50,13 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (accessToken: string) => {
     localStorage.setItem('token', accessToken);
     setToken(accessToken);
-    await fetchUserRole(accessToken);
+    await fetchUserProfile(accessToken);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setIsAdmin(null);
+    setUserProfile(null);
     setIsInitialized(true);
     setIsLoading(false);
     setError(null);
@@ -69,10 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (storedToken) {
         setToken(storedToken);
-        await fetchUserRole(storedToken);
+        await fetchUserProfile(storedToken);
       } else {
         setIsAdmin(null);
         setToken(null);
+        setUserProfile(null);
         setIsInitialized(true);
         setIsLoading(false);
         setError(null);
@@ -88,7 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin, 
         isInitialized, 
         isLoading,
-        error, 
+        error,
+        userProfile,
         login, 
         logout 
       }}

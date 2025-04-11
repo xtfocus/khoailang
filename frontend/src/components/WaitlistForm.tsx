@@ -7,9 +7,11 @@ export default function WaitlistForm() {
   const [password, setPassword] = useState('');
   const [language, setLanguage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(''); // Clear any previous errors
 
     try {
       const response = await fetch('/auth/waitlist', {
@@ -25,22 +27,34 @@ export default function WaitlistForm() {
         }),
       });
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error('Failed to submit waitlist entry');
+        if (response.status === 400 && data.detail === "Email already on the waitlist.") {
+          setError('This email is already on our waitlist.');
+        } else {
+          setError(data.detail || 'Failed to submit waitlist entry');
+        }
+        return;
       }
 
       setSubmitted(true);
     } catch (error) {
       console.error('Error submitting waitlist entry:', error);
-      alert('There was an error submitting your waitlist entry. Please try again.');
+      setError('There was an error submitting your waitlist entry. Please try again.');
     }
   };
 
   if (submitted) {
     return (
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Thank You!</h2>
-        <p className="text-gray-600 mt-2">You have successfully joined the waitlist.</p>
+      <div className="text-center p-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Thank You, {name}!</h2>
+        <p className="text-gray-600 mb-4">
+          You have successfully joined the waitlist. We'll notify you at {email} when your account is approved.
+        </p>
+        <p className="text-gray-500 text-sm">
+          Make sure to check your email regularly, including your spam folder.
+        </p>
       </div>
     );
   }
@@ -51,6 +65,13 @@ export default function WaitlistForm() {
       <p className="text-gray-600 mb-6">
         Be the first to know when we launch! Enter your details below to join the waitlist.
       </p>
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md" role="alert">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">

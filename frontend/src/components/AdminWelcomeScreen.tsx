@@ -1,9 +1,12 @@
 import React from 'react';
 import { User, ClipboardList, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export function AdminWelcomeScreen() {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+  const displayName = userProfile?.username || userProfile?.email.split('@')[0] || 'Admin';
 
   const handleActionSelect = (action: string) => {
     switch (action) {
@@ -21,7 +24,11 @@ export function AdminWelcomeScreen() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
+        <p className="mt-2 text-gray-600">Manage your admin tasks from here</p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <button
           onClick={() => handleActionSelect('waitlist')}

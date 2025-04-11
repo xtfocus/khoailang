@@ -1,6 +1,7 @@
 import React from 'react';
 import { Brain, Target, Zap, Calendar } from 'lucide-react';
 import { DashboardCard } from './DashboardCard';
+import { useAuth } from '../contexts/AuthContext';
 import type { UserStats } from '../types';
 
 const mockStats: UserStats = {
@@ -11,9 +12,15 @@ const mockStats: UserStats = {
 };
 
 export function Dashboard() {
+  const { userProfile } = useAuth();
+  const displayName = userProfile?.username || userProfile?.email.split('@')[0] || 'User';
+
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Learning Dashboard</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
+        <p className="mt-2 text-gray-600">Here's your learning progress today</p>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardCard
