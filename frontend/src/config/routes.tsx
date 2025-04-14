@@ -7,7 +7,10 @@ import { WaitlistManager } from '../components/WaitlistManager';
 import { UserManager } from '../components/UserManager';
 import { Dashboard } from '../components/Dashboard';
 import { AdminLayout } from '../components/layouts/AdminLayout';
-import { useAuth } from '../contexts/AuthContext';
+import { UserProfile } from '../components/UserProfile';
+import { ProtectedRoute } from '../components/routing/ProtectedRoute';
+import { createBrowserRouter } from 'react-router-dom';
+import ImportWords from '../components/ImportWords/ImportWords';
 
 export interface RouteConfig {
   path: string;
@@ -53,7 +56,7 @@ export const routes: RouteConfig[] = [
   },
   {
     path: '/admin',
-    element: <AdminLayout />,
+    element: <ProtectedRoute element={<AdminLayout />} requireAdmin isLayout />,
     requireAdmin: true,
     requireUser: false,
     title: 'Admin',
@@ -80,16 +83,43 @@ export const routes: RouteConfig[] = [
         title: 'User Management',
         description: 'Manage system users',
         breadcrumb: 'Admin > Users'
+      },
+      {
+        path: 'profile',
+        element: <UserProfile />,
+        title: 'Admin Profile',
+        description: 'Admin profile page',
+        breadcrumb: 'Admin > Profile'
       }
     ]
   },
   {
     path: '/dashboard',
-    element: <Dashboard />,
+    element: <ProtectedRoute element={<Dashboard />} requireUser />,
     requireUser: true,
     requireAdmin: false,
     title: 'Dashboard',
     description: 'Your personal dashboard',
     breadcrumb: 'Dashboard'
+  },
+  {
+    path: '/import',
+    element: <ProtectedRoute element={<ImportWords />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Import Words',
+    description: 'Import words to create flashcards',
+    breadcrumb: 'Import Words'
+  },
+  {
+    path: '/profile',
+    element: <ProtectedRoute element={<UserProfile />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Profile',
+    description: 'Your profile page',
+    breadcrumb: 'Profile'
   }
 ];
+
+export const router = createBrowserRouter(routes);

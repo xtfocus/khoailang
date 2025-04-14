@@ -21,6 +21,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    created_at: datetime
 
     class Config:
         orm_mode = True

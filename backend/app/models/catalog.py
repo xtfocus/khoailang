@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, TIMESTAMP, func
+from sqlalchemy.orm import relationship
 from app.database import Base
 
 class Catalog(Base):
@@ -10,6 +11,9 @@ class Catalog(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     visibility = Column(String(20), nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    # Add relationship
+    flashcards = relationship("Flashcard", secondary="catalog_flashcards", back_populates="catalogs")
 
 class CatalogFlashcard(Base):
     __tablename__ = "catalog_flashcards"

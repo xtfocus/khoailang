@@ -19,4 +19,5 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     flashcards = relationship("UserFlashcard", back_populates="user")
+    owned_flashcards = relationship("Flashcard", back_populates="owner")
     chat_interactions = relationship("ChatbotInteraction", back_populates="user")

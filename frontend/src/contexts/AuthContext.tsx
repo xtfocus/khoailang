@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
-interface UserProfile {
+export interface UserProfile {
+  id: number;
   email: string;
   username: string | null;
   is_admin: boolean;
+  created_at: string;
 }
 
 interface AuthContextType {
