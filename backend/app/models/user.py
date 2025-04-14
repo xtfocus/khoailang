@@ -13,6 +13,8 @@ class User(Base):
     username = Column(String, nullable=True)  # Username is now decorative and optional
     hashed_password = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)  # Soft delete flag
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # Track deletion time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, FastAPI, Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserLogin, Token, WaitlistSchema
@@ -79,23 +80,26 @@ def remove_user(user_id: int, current_user: User = Depends(get_current_user), db
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can remove users"
         )
-    
+
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot remove your own account"
         )
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    db.delete(user)
+
+    # Perform soft delete
+    user.is_active = False
+    user.deleted_at = func.now()
     db.commit()
-    return {"message": "User removed successfully"}
+
+    return {"message": "User deactivated successfully"}
 
 class WaitlistEntry(BaseModel):
     name: str

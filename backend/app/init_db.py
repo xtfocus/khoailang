@@ -23,6 +23,9 @@ from app.models.waitlist import Waitlist
 from app.models.quiz import Quiz, QuizType
 from app.models.flashcard import Flashcard, UserFlashcard
 from app.models.chat import ChatbotInteraction, Language
+from app.models.catalog import Catalog, CatalogFlashcard
+from app.models.sharing import FlashcardShare, CatalogShare
+from app.models.user_settings import UserSettings
 from sqlalchemy.orm import Session
 from app.dependencies.auth import get_password_hash
 
@@ -86,18 +89,51 @@ def add_sample_data(session: Session) -> None:
     Args:
         session: SQLAlchemy database session
     """
+    # Create a sample user to own the flashcard if not already present
+    sample_user_email = "quang@example.com"
+    sample_user = session.query(User).filter(User.email == sample_user_email).first()
+    if not sample_user:
+        sample_user = User(
+            email=sample_user_email,
+            username="quang",
+            hashed_password=get_password_hash("test123"),
+            is_admin=False
+        )
+        session.add(sample_user)
+        session.flush()  # To get the user ID
+
     if not session.query(Flashcard).filter(Flashcard.front == "Hola").first():
         sample_flashcard = Flashcard(
             front="Hola",
             back="Hello",
-            language="Spanish"
+            language="Spanish",
+            owner_id=sample_user.id  # Assign the owner_id
         )
         session.add(sample_flashcard)
 
 def init_waitlist_table(session: Session) -> None:
     """Ensure the waitlist table is initialized."""
-    # No specific data to initialize for the waitlist table, but this ensures the table exists
     pass
+
+def init_user_settings(session: Session) -> None:
+    """Initialize default user settings for existing users.
+    
+    Args:
+        session: SQLAlchemy database session
+    """
+    users_without_settings = session.query(User).outerjoin(
+        UserSettings, User.id == UserSettings.user_id
+    ).filter(UserSettings.user_id.is_(None)).all()
+
+    for user in users_without_settings:
+        settings = UserSettings(
+            user_id=user.id,
+            allow_duplicates=False,
+            default_visibility="private",
+            preferred_languages="en",  # Default to English
+            ui_preferences='{"theme": "light"}'  # Default UI preferences as JSON
+        )
+        session.add(settings)
 
 def init_db() -> None:
     """Main initialization function that creates tables and populates initial data.
@@ -107,15 +143,14 @@ def init_db() -> None:
     2. Initialize reference data (quiz types, languages)
     3. Add sample data for development
     """
-    # Create all tables based on the models
     Base.metadata.create_all(bind=engine)
     
-    # Initialize data using a single session
     with Session(engine) as session:
         init_quiz_types(session)
         init_languages(session)
         create_admin_user(session)
-        init_waitlist_table(session)  # Ensure waitlist table is initialized
+        init_waitlist_table(session)
+        init_user_settings(session)
         add_sample_data(session)
         session.commit()
 
