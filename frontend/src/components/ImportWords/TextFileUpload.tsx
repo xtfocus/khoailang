@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import axios from '../../config/axios';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Word {
@@ -32,31 +32,15 @@ const TextFileUpload: React.FC<TextFileUploadProps> = ({ onWordsExtracted }) => 
       // Step 1: Extract words from file
       const formData = new FormData();
       formData.append('file', file);
-      const extractResponse = await axios.post('/api/words/txt/extract', formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const extractResponse = await axios.post('/api/words/txt/extract', formData);
       const extractedWords = extractResponse.data.words;
 
       // Step 2: Validate words
-      const validateResponse = await axios.post('/api/words/validate', extractedWords, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      const validateResponse = await axios.post('/api/words/validate', extractedWords);
       const validWords = validateResponse.data.valid_words;
 
       // Step 3: Check for duplicates
-      const duplicateResponse = await axios.post('/api/words/check-duplicates', validWords, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      const duplicateResponse = await axios.post('/api/words/check-duplicates', validWords);
       const duplicates = new Set(duplicateResponse.data.duplicates);
       
       // Combine the results

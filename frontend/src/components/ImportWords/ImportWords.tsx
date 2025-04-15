@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import ImportOptions from './ImportOptions';
 import TextFileUpload from './TextFileUpload';
 import { useAuth } from '../../contexts/AuthContext';
 import { HiCheckCircle, HiExclamationTriangle, HiPlusCircle } from 'react-icons/hi2';
+import axios from '../../config/axios';
 
 interface Word {
   front: string;
@@ -45,16 +45,8 @@ export function ImportWords() {
     const fetchData = async () => {
       try {
         const [catalogsRes, languagesRes] = await Promise.all([
-          axios.get('/api/catalogs/owned', {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
-            }
-          }),
-          axios.get('/api/words/languages', {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
-            }
-          })
+          axios.get('/api/catalogs/owned'),
+          axios.get('/api/words/languages')
         ]);
         setCatalogs(catalogsRes.data);
         setLanguages(languagesRes.data.languages);
@@ -72,13 +64,7 @@ export function ImportWords() {
       try {
         const generateResponse = await axios.post(
           '/api/words/generate-flashcards',
-          nonDuplicateWords.map(w => w.front),
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            }
-          }
+          nonDuplicateWords.map(w => w.front)
         );
         
         const flashcardsWithDefinitions = generateResponse.data.flashcards as Flashcard[];
@@ -136,7 +122,7 @@ export function ImportWords() {
     
     setImporting(true);
     setError(null);
-    
+
     try {
       // Import the words directly since definitions are already generated
       const importResponse = await axios.post(
@@ -147,12 +133,6 @@ export function ImportWords() {
             back: w.back
           })),
           catalog_ids: selectedCatalogs
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
         }
       );
 

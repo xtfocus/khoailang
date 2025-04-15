@@ -9,12 +9,14 @@ import { Dashboard } from '../components/Dashboard';
 import { AdminLayout } from '../components/layouts/AdminLayout';
 import { UserProfile } from '../components/UserProfile';
 import { ProtectedRoute } from '../components/routing/ProtectedRoute';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ImportWords from '../components/ImportWords/ImportWords';
 import { FlashcardTable } from '../components/FlashcardTable';
+import { CreateCatalog } from '../components/CreateCatalog';
+import { CatalogList } from '../components/CatalogList';
 
 export interface RouteConfig {
-  path: string;
+  path?: string; // Make path optional since index routes don't need it
   element?: React.ReactElement;
   requireAdmin?: boolean;
   requireUser?: boolean;
@@ -43,7 +45,7 @@ export const routes: RouteConfig[] = [
   },
   {
     path: '/signup',
-    element: <SignupForm />,
+    element: <SignupForm onSignup={() => window.location.href = '/login'} />,
     public: true,
     title: 'Sign Up',
     description: 'Create a new account'
@@ -129,6 +131,33 @@ export const routes: RouteConfig[] = [
     title: 'Profile',
     description: 'Your profile page',
     breadcrumb: 'Profile'
+  },
+  {
+    path: '/catalogs',
+    element: <ProtectedRoute element={<Navigate to="/catalogs/list" replace />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Catalogs',
+    description: 'View and manage your catalogs',
+    breadcrumb: 'Catalogs'
+  },
+  {
+    path: '/catalogs/list',
+    element: <ProtectedRoute element={<CatalogList />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Your Catalogs',
+    description: 'View your flashcard catalogs',
+    breadcrumb: 'Your Catalogs'
+  },
+  {
+    path: '/catalogs/create',
+    element: <ProtectedRoute element={<CreateCatalog />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Create Catalog',
+    description: 'Create a new flashcard catalog',
+    breadcrumb: 'Create Catalog'
   }
 ];
 

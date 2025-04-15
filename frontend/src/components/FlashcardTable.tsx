@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from '../config/axios';
 
 interface Flashcard {
   id: string;
@@ -80,14 +81,8 @@ export function FlashcardTable() {
 
   const fetchFlashcards = async () => {
     try {
-      const response = await fetch('/api/flashcards/all', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch flashcards');
-      const data = await response.json();
-      setFlashcards(data.flashcards);
+      const response = await axios.get('/api/flashcards/all');
+      setFlashcards(response.data.flashcards);
     } catch (error) {
       console.error('Error fetching flashcards:', error);
     } finally {
@@ -97,25 +92,12 @@ export function FlashcardTable() {
 
   const handleShare = async (emails: string[]) => {
     try {
-      const response = await fetch('/api/flashcards/share', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          flashcardIds: Array.from(selectedCards),
-          emails
-        })
+      const response = await axios.post('/api/flashcards/share', {
+        flashcardIds: Array.from(selectedCards),
+        emails
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to share flashcards');
-      }
-
-      const data = await response.json();
-      const { newlyShared, alreadyShared } = data.details;
+      const { newlyShared, alreadyShared } = response.data.details;
 
       // Display feedback to the user
       let message = '';
@@ -152,18 +134,9 @@ export function FlashcardTable() {
     if (!confirm('Are you sure you want to delete the selected flashcards?')) return;
 
     try {
-      const response = await fetch('/api/flashcards/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          flashcardIds: Array.from(selectedCards)
-        })
+      await axios.post('/api/flashcards/delete', {
+        flashcardIds: Array.from(selectedCards)
       });
-
-      if (!response.ok) throw new Error('Failed to delete flashcards');
       
       await fetchFlashcards(); // Refresh the list
       setSelectedCards(new Set());

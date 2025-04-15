@@ -68,18 +68,18 @@ def init_languages(session: Session) -> None:
         session: SQLAlchemy database session
     """
     languages = [
-        {"name": "Spanish", "code": "es"},
-        {"name": "Japanese", "code": "ja"},
-        {"name": "French", "code": "fr"},
-        {"name": "German", "code": "de"},
-        {"name": "Chinese", "code": "zh"},
-        {"name": "Vietnamese", "code": "vi"},
-        {"name": "English", "code": "en"},
+        {"name": "Spanish"},
+        {"name": "Japanese"},
+        {"name": "French"},
+        {"name": "German"},
+        {"name": "Chinese"},
+        {"name": "Vietnamese"},
+        {"name": "English"},
     ]
 
     for lang in languages:
         if not session.query(Language).filter(Language.name == lang["name"]).first():
-            session.add(Language(name=lang["name"], code=lang["code"]))
+            session.add(Language(name=lang["name"]))
 
 
 def create_admin_user(session: Session) -> None:

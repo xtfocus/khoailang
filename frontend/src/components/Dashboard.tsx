@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, Target, Zap, Calendar, Plus } from 'lucide-react';
+import { Brain, Target, Zap, Calendar, Plus, Book } from 'lucide-react';
 import { DashboardCard } from './DashboardCard';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,13 +37,22 @@ export function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
           <p className="mt-2 text-gray-600">Here's your learning progress today</p>
         </div>
-        <Link 
-          to="/import"
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Import Words
-        </Link>
+        <div className="flex gap-4">
+          <Link 
+            to="/catalogs/create"
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Book className="w-5 h-5 mr-2" />
+            Create Catalog
+          </Link>
+          <Link 
+            to="/import"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Import Words
+          </Link>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

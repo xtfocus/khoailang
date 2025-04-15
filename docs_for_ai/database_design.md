@@ -131,14 +131,12 @@ The `languages` table stores supported languages for flashcards and user prefere
 CREATE TABLE languages (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL, -- The name of the language (e.g., Spanish, Japanese)
-    code VARCHAR(10) NOT NULL -- The language code (e.g., "es", "ja")
 );
 ```
 
 ### **Column Descriptions**
 - **`id`**: Unique identifier for the language.
 - **`name`**: The name of the language (e.g., Spanish, Japanese).
-- **`code`**: The language code (e.g., "es", "ja").
 
 ---
 
@@ -344,10 +342,10 @@ CREATE TABLE user_settings (
 | 1   | 1       | "What does Hola mean?"| 2025-04-08 11:00:00 |
 
 ### Languages Table
-| id  | name     | code |
-|-----|----------|------|
-| 1   | Spanish  | es   |
-| 2   | Japanese | ja   |
+| id  | name     
+|-----|----------
+| 1   | Spanish  
+| 2   | Japanese 
 
 ### Catalogs Table
 | id  | name                | description                                | visibility | owner_id |
