@@ -5,11 +5,15 @@ interface DashboardCardProps {
   title: string;
   value: number | string;
   icon?: React.ReactNode;
+  onClick?: () => void;
 }
 
-export function DashboardCard({ title, value, icon }: DashboardCardProps) {
+export function DashboardCard({ title, value, icon, onClick }: DashboardCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4">
+    <div 
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 ${onClick ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+    >
       {icon && <div className="text-indigo-600">{icon}</div>}
       <div>
         <h3 className="text-gray-500 text-sm font-medium">{title}</h3>

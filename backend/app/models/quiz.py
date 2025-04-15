@@ -7,6 +7,7 @@ class QuizType(Base):
     __tablename__ = "quiz_types"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False, unique=True)
+    difficulty = Column(Integer, nullable=False, default=1)  # Set default value for difficulty
 
     quizzes = relationship("Quiz", back_populates="quiz_type")
 

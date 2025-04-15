@@ -11,6 +11,7 @@ import { UserProfile } from '../components/UserProfile';
 import { ProtectedRoute } from '../components/routing/ProtectedRoute';
 import { createBrowserRouter } from 'react-router-dom';
 import ImportWords from '../components/ImportWords/ImportWords';
+import { FlashcardTable } from '../components/FlashcardTable';
 
 export interface RouteConfig {
   path: string;
@@ -110,6 +111,15 @@ export const routes: RouteConfig[] = [
     title: 'Import Words',
     description: 'Import words to create flashcards',
     breadcrumb: 'Import Words'
+  },
+  {
+    path: '/flashcards',
+    element: <ProtectedRoute element={<FlashcardTable />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'View Flashcards',
+    description: 'View and manage your flashcards',
+    breadcrumb: 'Flashcards'
   },
   {
     path: '/profile',

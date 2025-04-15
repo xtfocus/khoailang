@@ -20,10 +20,11 @@ from app.database import Base, engine
 from app.dependencies.auth import get_password_hash
 from app.models.catalog import Catalog, CatalogFlashcard
 from app.models.chat import ChatbotInteraction, Language
-from app.models.flashcard import Flashcard, UserFlashcard
+from app.models.flashcard import Flashcard
 from app.models.quiz import Quiz, QuizType
 from app.models.sharing import CatalogShare, FlashcardShare
 from app.models.user import User
+from app.models.user_flashcard import UserFlashcard
 from app.models.user_settings import UserSettings
 from app.models.waitlist import Waitlist
 from dotenv import load_dotenv
@@ -32,23 +33,32 @@ from sqlalchemy.orm import Session
 load_dotenv()
 
 
-def init_quiz_types(session: Session) -> None:
-    """Initialize quiz types in the database.
-
-    Args:
-        session: SQLAlchemy database session
-    """
-    quiz_type_names = [
-        "Definition Recognition",
-        "Synonyms & Antonyms",
-        "Fill-in-the-Blank",
-        "Multiple-Choice Context",
-        "True/False Judgments",
+def create_quiz_types(session: Session) -> None:
+    """Initialize quiz types with difficulty levels."""
+    quiz_types = [
+        {"name": "Definition-to-Word (Multiple-Choice)", "difficulty": 1},
+        {"name": "Word-to-Definition (Multiple-Choice)", "difficulty": 1},
+        {"name": "Synonym Selection (Multiple-Choice)", "difficulty": 2},
+        {"name": "Antonym Selection (Multiple-Choice)", "difficulty": 2},
+        {"name": "Open-Ended Cloze (Cloze)", "difficulty": 5},
+        {"name": "Multiple-Choice Cloze (Multiple-Choice)", "difficulty": 3},
+        {"name": "Scenario Identification (Multiple-Choice)", "difficulty": 3},
+        {"name": "Word to Proverb (Multiple-Choice)", "difficulty": 4},
+        {"name": "Proverb to Word (Multiple-Choice)", "difficulty": 4},
+        {"name": "Proverb to Word (Cloze)", "difficulty": 5},
+        {"name": "Meaning Validation (True/False)", "difficulty": 1},
+        {"name": "Usage Validation (True/False)", "difficulty": 2},
     ]
 
-    for name in quiz_type_names:
-        if not session.query(QuizType).filter(QuizType.name == name).first():
-            session.add(QuizType(name=name))
+    for quiz_type in quiz_types:
+        if (
+            not session.query(QuizType)
+            .filter(QuizType.name == quiz_type["name"])
+            .first()
+        ):
+            session.add(
+                QuizType(name=quiz_type["name"], difficulty=quiz_type["difficulty"])
+            )
 
 
 def init_languages(session: Session) -> None:
@@ -107,8 +117,13 @@ def add_sample_data(session: Session) -> None:
         session.flush()  # To get the user ID
 
     # Get Spanish language ID
-    spanish_language = session.query(Language).filter(Language.name == "Spanish").first()
-    if spanish_language and not session.query(Flashcard).filter(Flashcard.front == "Hola").first():
+    spanish_language = (
+        session.query(Language).filter(Language.name == "Spanish").first()
+    )
+    if (
+        spanish_language
+        and not session.query(Flashcard).filter(Flashcard.front == "Hola").first()
+    ):
         sample_flashcard = Flashcard(
             front="Hola",
             back="Hello",
@@ -158,7 +173,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
     with Session(engine) as session:
-        init_quiz_types(session)
+        create_quiz_types(session)
         init_languages(session)
         create_admin_user(session)
         init_waitlist_table(session)

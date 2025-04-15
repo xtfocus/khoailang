@@ -1,140 +1,208 @@
-This is a documentation of types of quizzes
+Great catch! Let's fix that 👇
+
+Here’s the **revised list** with examples and **balanced difficulty scores from 1 to 5**, where:
+
+- 🌱 **1 = Very Easy** (recognition, familiar words)
+- ✏️ **2 = Easy** (basic recall)
+- ⚖️ **3 = Medium** (requires light reasoning)
+- 🧠 **4 = Hard** (abstract, contextual, proverb, cloze)
+- 🧗‍♂️ **5 = Very Hard** (open-ended, indirect, tricky options)
 
 ---
 
-## 1. Definition Recognition
+### ✅ 1. **Definition-to-Word (Multiple-Choice)**  
+🌱 Difficulty: **1**
 
-**Definition:**  
-Tests whether the student understands the core meaning of the word “perseverance.” This can include:
-- Choosing the correct **definition** for a given word  
-- Choosing the correct **word** based on a given definition  
+**Question:**  
+What word means *"happy"*?
 
-**Suitable Formats:**  
-- Multiple-choice (select the correct definition or matching word)
+**Choices:**  
+A. Sad  
+B. Angry  
+C. Joyful  
+D. Cold  
 
-**Example Questions:**
-- _Which of the following best defines "perseverance"?_  
-  A) Giving up easily when things get hard  
-  B) The act of continuing to try despite difficulties  
-  C) Waiting for something good to happen  
-  D) Solving problems only when asked  
-  > ✅ Correct answer: B
-
-- _The act of continuing to try despite difficulties_  
-  A) peseverence  
-  B) perseverance  
-  C) patience  
-  D) excellence  
-  > ✅ Correct answer: B
+✅ Answer: C. Joyful
 
 ---
 
-## 2. Synonyms & Antonyms
+### ✅ 2. **Word-to-Definition (Multiple-Choice)**  
+✏️ Difficulty: **1**
 
-**Definition:**  
-Checks the student's ability to recognize similar or opposite meanings of “perseverance.”
+**Question:**  
+What does *generous* mean?
 
-**Suitable Formats:**  
-- Multiple-choice (choose synonym or antonym)  
-- Matching (match target word with related words)
+**Choices:**  
+A. Rude to others  
+B. Willing to give or share  
+C. Full of energy  
+D. Needing help  
 
-**Example Questions:**
-- _Which word is closest in meaning to "perseverance"?_  
-  A) Laziness  
-  B) Determination  
-  C) Indifference  
-  D) Excitement  
-  > ✅ Correct answer: B
-
-- _Match each word to its synonym:_
-
-| Left Column         | Right Column       |
-|---------------------|--------------------|
-| perseverance        | A. hesitation      |
-| enthusiasm          | B. excitement      |
-| doubt               | C. uncertainty     |
-| laziness            | D. giving up       |
-|                     | E. persistence     |
-
-> Correct matches:  
-> perseverance → E  
-> enthusiasm → B  
-> doubt → C  
-> laziness → D
+✅ Answer: B. Willing to give or share
 
 ---
 
-## 3. Fill-in-the-Blank Usage
+### ✅ 3. **Synonym Selection (Multiple-Choice)**  
+⚖️ Difficulty: **2**
 
-**Definition:**  
-Assesses the student's ability to correctly use “perseverance” in context.
+**Question:**  
+What is a synonym for *furious*?
 
-**Suitable Formats:**  
-- Cloze (open-ended fill-in-the-blank, now with helpful hints)  
-- Multiple-choice cloze (fill-in-the-blank with options)
+**Choices:**  
+A. Angry  
+B. Tired  
+C. Sad  
+D. Nervous  
 
----
-
-### ✏️ Example: Multiple-Choice Cloze
-
-_She showed great _____ when she studied every day for months to pass the exam._  
-A) boredom  
-B) hesitation  
-C) perseverance  
-D) luck  
-> ✅ **Correct answer: C**
+✅ Answer: A. Angry
 
 ---
 
-### ✏️ Example: Open-Ended Cloze (with hinted letters)
+### ✅ 4. **Antonym Selection (Multiple-Choice)**  
+⚖️ Difficulty: **2**
 
-_After several failures, he succeeded in launching his startup thanks to his p__________e._  
+**Question:**  
+What is the opposite of *rare*?
 
-✍️ Student writes: **perseverance**
+**Choices:**  
+A. Unique  
+B. Common  
+C. Shiny  
+D. Clear  
 
----
-
-## 4. Multiple-Choice Context
-
-**Definition:**  
-Evaluates whether the student can identify real-life examples, stories, or proverbs that reflect the concept of “perseverance.”
-
-**Suitable Formats:**  
-- Multiple-choice (choose the scenario or saying that reflects the concept)
-
-**Example Questions:**
-- _Which scenario best shows perseverance?_  
-  A) A student who changes majors every semester  
-  B) An athlete who trains daily despite constant losses  
-  C) A singer who gives up after one failed audition  
-  D) A worker who quits after one bad performance review  
-  > ✅ Correct answer: B
-
-- _Which proverb best reflects the meaning of "perseverance"?_  
-  A) "The early bird catches the worm."  
-  B) "Practice makes perfect."  
-  C) "Out of sight, out of mind."  
-  D) "Curiosity killed the cat."  
-  > ✅ Correct answer: B
+✅ Answer: B. Common
 
 ---
 
-## 5. True/False Judgments
+\[REMOVED\]
 
-**Definition:**  
-Quickly checks understanding of the word by having the student confirm or reject simple statements about its meaning or use.
+### ✅ 5. **Synonym Matching (Pairing)**  
+⚖️ Difficulty: **3**
 
-**Suitable Formats:**  
-- True/False
+| Word        | Synonym         |
+|-------------|------------------|
+| Silent      | A. Quiet         |
+| Smart       | B. Intelligent   |
+| Rapid       | C. Fast          |
+| Start       | D. Begin         |
 
-**Example Questions:**
-- _True or False: Perseverance means giving up when something is hard._  
-  > ✅ False
+✅ Matches: Silent → A, Smart → B, Rapid → C, Start → D
 
-- _True or False: A person who shows perseverance will likely keep trying even after failing._  
-  > ✅ True
+---
+\[REMOVED\]
+### ✅ 6. **Antonym Matching (Pairing)**  
+✏️ Difficulty: **3**
 
+| Word        | Antonym         |
+|-------------|------------------|
+| Hot         | A. Cold          |
+| Light       | B. Heavy         |
+| Happy       | C. Sad           |
+| Win         | D. Lose          |
+
+✅ Matches: Hot → A, etc.
 
 ---
 
-**Note on presentation:**  If the word is revealed in the question, and if the word is associated with an image in database, display the image as well
+### ✅ 7. **Open-Ended Cloze (Cloze)**  
+🧗‍♂️ Difficulty: **5**
+
+**Sentence:**  
+She remained _____ despite all the praise she received.
+
+✍️ Your answer: humble  
+✅ Expected: humble
+
+---
+
+### ✅ 8. **Multiple-Choice Cloze**  
+🧠 Difficulty: **3**
+
+**Sentence:**  
+He answered the question so _____ that everyone was impressed.
+
+**Choices:**  
+A. rudely  
+B. confidently  
+C. poorly  
+D. randomly  
+
+✅ Answer: B. confidently
+
+---
+
+### ✅ 9. **Scenario Identification (Multiple-Choice)**  
+🧠 Difficulty: **3**
+
+**Question:**  
+Which situation be3st shows *integrity*?
+
+**Choices:**  
+A. Helping a friend cheat on a test  
+B. Admitting a mistake to your teacher  
+C. Copying homework  
+D. Ignoring rules when no one is watching  
+
+✅ Answer: B. Admitting a mistake to your teacher
+
+---
+
+### ✅ 10. **Word to Proverb (Multiple-Choice)**  
+🧠 Difficulty: **4**
+
+**Question:**  
+Which proverb best reflects *resilience*?
+
+**Choices:**  
+A. “When the going gets tough, the tough get going.”  
+B. “Don’t judge a book by its cover.”  
+C. “Too many cooks spoil the broth.”  
+D. “Practice makes perfect.”
+
+✅ Answer: A
+
+---
+
+### ✅ 11. **Proverb to Word (Multiple-Choice)**  
+🧠 Difficulty: **4**
+
+**Question:**  
+What does *"Look before you leap"* suggest?
+
+**Choices:**  
+A. Act fast  
+B. Don’t look back  
+C. Plan carefully  
+D. Avoid mistakes
+
+✅ Answer: C. Plan carefully
+
+---
+
+### ✅ 12. **Proverb to Word (Cloze)**  
+🧠 Difficulty: **5**
+
+**Question:**  
+What does *"Look before you leap"* suggest? Hint: 6 letters
+
+✍️ Your answer: humble  
+✅ Expected: humble
+
+---
+
+### ✅ 13. **Usage Validation (True/False)**  
+🌱 Difficulty: **1**
+
+**Question:**  
+“She was thrilled to win the prize.” – Is *thrilled* used correctly?
+
+✅ Answer: True
+
+
+### ✅ 14. **Meaning Validation (True/False)**  
+🌱 Difficulty: **1**
+
+**Question:**  
+“"Price is marked down" means the price of an item has been reduced from its original selling price” – True or False?
+
+✅ Answer: True

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 
-from app.routes import api_router
+from app.routes import api_router, auth, words, quizzes, flashcards
 from app.config import ModelConfig
 from app.globals import clients, configs
 
@@ -45,6 +45,12 @@ app.add_middleware(
 
 # Include the centralized router
 app.include_router(api_router)
+
+# Include routers
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(words.router, prefix="/api/words", tags=["words"])
+app.include_router(quizzes.router, prefix="/api/quizzes", tags=["quizzes"])
+app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcards"])
 
 @app.get("/")
 async def root():

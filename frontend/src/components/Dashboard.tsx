@@ -1,20 +1,34 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Brain, Target, Zap, Calendar, Plus } from 'lucide-react';
 import { DashboardCard } from './DashboardCard';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { UserStats } from '../types';
-
-const mockStats: UserStats = {
-  totalCards: 120,
-  cardsToReview: 15,
-  averageLevel: 3.5,
-  streak: 7
-};
 
 export function Dashboard() {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<UserStats | null>(null);
   const displayName = userProfile?.username || userProfile?.email.split('@')[0] || 'User';
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/flashcards/stats', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -35,22 +49,23 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardCard
           title="Total Cards"
-          value={mockStats.totalCards}
+          value={stats?.totalCards ?? '-'}
           icon={<Brain className="w-6 h-6" />}
+          onClick={() => navigate('/flashcards')}
         />
         <DashboardCard
           title="Due for Review"
-          value={mockStats.cardsToReview}
+          value={stats?.cardsToReview ?? '-'}
           icon={<Calendar className="w-6 h-6" />}
         />
         <DashboardCard
           title="Average Level"
-          value={mockStats.averageLevel.toFixed(1)}
+          value={stats?.averageLevel?.toFixed(1) ?? '-'}
           icon={<Target className="w-6 h-6" />}
         />
         <DashboardCard
           title="Day Streak"
-          value={mockStats.streak}
+          value={stats?.streak ?? '-'}
           icon={<Zap className="w-6 h-6" />}
         />
       </div>

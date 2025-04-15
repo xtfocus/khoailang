@@ -28,9 +28,16 @@ export default function NotificationIcon() {
       addNotification(`Successfully imported ${event.detail.count} words`);
     };
 
+    const handleShareSuccess = (event: CustomEvent<{ count: number }>) => {
+      addNotification(`Successfully shared ${event.detail.count} flashcard${event.detail.count > 1 ? 's' : ''}`);
+    };
+
     window.addEventListener('wordImportSuccess' as any, handleImportSuccess);
+    window.addEventListener('flashcardShareSuccess' as any, handleShareSuccess);
+    
     return () => {
       window.removeEventListener('wordImportSuccess' as any, handleImportSuccess);
+      window.removeEventListener('flashcardShareSuccess' as any, handleShareSuccess);
     };
   }, []);
 

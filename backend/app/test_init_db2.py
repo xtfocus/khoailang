@@ -12,60 +12,89 @@ def test_init_db2():
         # Run the initialization script
         init_dummy_data()
 
-        # Test 1: Quang owns the Weather catalog
-        weather_catalog = session.query(Catalog).filter(Catalog.name == "Weather Vocabulary").first()
+        # Get users
         quang = session.query(User).filter(User.email == "quang@example.com").first()
+        thuy = session.query(User).filter(User.email == "thuy@example.com").first()
+        lan = session.query(User).filter(User.email == "lan@example.com").first()
+
+        # Test 1: Basic catalog ownership
+        weather_catalog = session.query(Catalog).filter(Catalog.name == "Weather Vocabulary").first()
+        office_catalog = session.query(Catalog).filter(Catalog.name == "Office Vocabulary").first()
+        interview_catalog = session.query(Catalog).filter(Catalog.name == "Interview Vocabulary").first()
+
         if weather_catalog and weather_catalog.owner_id == quang.id:
             print('test "Quang owns Weather catalog": OK')
         else:
             print('test "Quang owns Weather catalog": FAIL')
 
-        # Test 2: Thuy owns the Office catalog
-        office_catalog = session.query(Catalog).filter(Catalog.name == "Office Vocabulary").first()
-        thuy = session.query(User).filter(User.email == "thuy@example.com").first()
         if office_catalog and office_catalog.owner_id == thuy.id:
             print('test "Thuy owns Office catalog": OK')
         else:
             print('test "Thuy owns Office catalog": FAIL')
 
-        # Test 3: Lan owns the Interview catalog
-        interview_catalog = session.query(Catalog).filter(Catalog.name == "Interview Vocabulary").first()
-        lan = session.query(User).filter(User.email == "lan@example.com").first()
         if interview_catalog and interview_catalog.owner_id == lan.id:
             print('test "Lan owns Interview catalog": OK')
         else:
             print('test "Lan owns Interview catalog": FAIL')
 
-        # Test 4: Interview catalog is shared with Thuy only
+        # Test 2: Catalog sharing
+        weather_shares = session.query(CatalogShare).filter(CatalogShare.catalog_id == weather_catalog.id).all()
+        if any(share.shared_with_id == thuy.id for share in weather_shares):
+            print('test "Weather catalog is shared with Thuy": OK')
+        else:
+            print('test "Weather catalog is shared with Thuy": FAIL')
+
+        office_shares = session.query(CatalogShare).filter(CatalogShare.catalog_id == office_catalog.id).all()
+        if any(share.shared_with_id == quang.id for share in office_shares):
+            print('test "Office catalog is shared with Quang": OK')
+        else:
+            print('test "Office catalog is shared with Quang": FAIL')
+
         interview_shares = session.query(CatalogShare).filter(CatalogShare.catalog_id == interview_catalog.id).all()
         if len(interview_shares) == 1 and interview_shares[0].shared_with_id == thuy.id:
             print('test "Interview catalog is shared with Thuy only": OK')
         else:
             print('test "Interview catalog is shared with Thuy only": FAIL')
 
-        # Test 5: Flashcards in Weather catalog are authored by Quang
-        weather_flashcards = (
-            session.query(Flashcard)
-            .join(CatalogFlashcard, CatalogFlashcard.flashcard_id == Flashcard.id)
-            .join(Catalog, Catalog.id == CatalogFlashcard.catalog_id)
-            .filter(Catalog.name == "Weather Vocabulary")
-            .all()
-        )
-        if all(flashcard.owner_id == quang.id for flashcard in weather_flashcards):
-            print('test "Flashcards in Weather catalog are authored by Quang": OK')
+        # Test 3: Flashcard ownership (all by Quang as per implementation)
+        all_flashcards = session.query(Flashcard).all()
+        if all(flashcard.owner_id == quang.id for flashcard in all_flashcards):
+            print('test "All flashcards are authored by Quang": OK')
         else:
-            print('test "Flashcards in Weather catalog are authored by Quang": FAIL')
+            print('test "All flashcards are authored by Quang": FAIL')
 
-        # Test 6: "rain" flashcard is not shared with Thuy
-        rain_flashcard = session.query(Flashcard).filter(Flashcard.front == "rain").first()
-        rain_share = session.query(FlashcardShare).filter(
-            FlashcardShare.flashcard_id == rain_flashcard.id,
-            FlashcardShare.shared_with_id == thuy.id
-        ).first()
-        if rain_share is None:
-            print('test "rain flashcard is not shared with Thuy": OK')
-        else:
-            print('test "rain flashcard is not shared with Thuy": FAIL')
+        # Test 4: Individual flashcard sharing
+        # These should be shared with Thuy
+        shared_words = ['sunny', 'cloud', 'storm']
+        for word in shared_words:
+            flashcard = session.query(Flashcard).filter(Flashcard.front == word).first()
+            if flashcard:
+                share = session.query(FlashcardShare).filter(
+                    FlashcardShare.flashcard_id == flashcard.id,
+                    FlashcardShare.shared_with_id == thuy.id
+                ).first()
+                if share:
+                    print(f'test "{word} flashcard is shared with Thuy": OK')
+                else:
+                    print(f'test "{word} flashcard is shared with Thuy": FAIL')
+            else:
+                print(f'test "{word} flashcard exists": FAIL')
+
+        # These should NOT be shared with Thuy
+        unshared_words = ['rain', 'wind', 'work']
+        for word in unshared_words:
+            flashcard = session.query(Flashcard).filter(Flashcard.front == word).first()
+            if flashcard:
+                share = session.query(FlashcardShare).filter(
+                    FlashcardShare.flashcard_id == flashcard.id,
+                    FlashcardShare.shared_with_id == thuy.id
+                ).first()
+                if share is None:
+                    print(f'test "{word} flashcard is NOT shared with Thuy": OK')
+                else:
+                    print(f'test "{word} flashcard is NOT shared with Thuy": FAIL')
+            else:
+                print(f'test "{word} flashcard exists": FAIL')
 
 if __name__ == "__main__":
     test_init_db2()
