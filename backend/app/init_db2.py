@@ -114,8 +114,8 @@ def create_dummy_catalogs(session: Session, users: dict) -> dict:
 
 def create_dummy_flashcards(session: Session, catalogs: dict, users: dict) -> None:
     """Create flashcards for weather and office catalogs."""
-    # Fetch the language_id for English
-    english_language = session.query(Language).filter(Language.code == "en").first()
+    # Fetch the English language ID
+    english_language = session.query(Language).filter(Language.name == "English").first()
     if not english_language:
         raise ValueError("English language not found in the database. Please initialize languages first.")
 
@@ -144,7 +144,7 @@ def create_dummy_flashcards(session: Session, catalogs: dict, users: dict) -> No
             flashcard = Flashcard(
                 front=front,
                 back=back,
-                language=english_language.code,  # Use language code instead of ID
+                language_id=english_language.id,  # Use language ID instead of code
                 owner_id=users["quang"].id  # All flashcards are authored by Quang
             )
             session.add(flashcard)

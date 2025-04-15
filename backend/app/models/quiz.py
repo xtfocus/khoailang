@@ -16,9 +16,10 @@ class Quiz(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
-    target_language = Column(String(50), nullable=False)
+    language_id = Column(Integer, ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False)
     quiz_type_id = Column(Integer, ForeignKey("quiz_types.id", ondelete="RESTRICT"), nullable=False)
     score = Column(Float)
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
 
     quiz_type = relationship("QuizType", back_populates="quizzes")
+    language = relationship("Language")

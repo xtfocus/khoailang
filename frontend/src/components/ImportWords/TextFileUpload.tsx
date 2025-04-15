@@ -39,20 +39,28 @@ const TextFileUpload: React.FC<TextFileUploadProps> = ({ onWordsExtracted }) => 
       });
       const extractedWords = extractResponse.data.words;
 
-      // Step 2: Check for duplicates
-      const duplicateResponse = await axios.post('/api/words/check-duplicates', 
-        extractedWords,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+      // Step 2: Validate words
+      const validateResponse = await axios.post('/api/words/validate', extractedWords, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      );
+      });
+
+      const validWords = validateResponse.data.valid_words;
+
+      // Step 3: Check for duplicates
+      const duplicateResponse = await axios.post('/api/words/check-duplicates', validWords, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
       const duplicates = new Set(duplicateResponse.data.duplicates);
       
       // Combine the results
-      const wordsWithDuplicateStatus = extractedWords.map((front: string) => ({
+      const wordsWithDuplicateStatus = validWords.map((front: string) => ({
         front,
         isDuplicate: duplicates.has(front)
       }));

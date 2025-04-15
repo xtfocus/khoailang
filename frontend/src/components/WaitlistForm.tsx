@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface Language {
+  id: number;
+  name: string;
+}
 
 export default function WaitlistForm() {
   const [email, setEmail] = useState('');
@@ -6,8 +11,22 @@ export default function WaitlistForm() {
   const [reason, setReason] = useState('');
   const [password, setPassword] = useState('');
   const [language, setLanguage] = useState('');
+  const [languages, setLanguages] = useState<Language[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      try {
+        const response = await fetch('/api/words/languages');
+        const data = await response.json();
+        setLanguages(data.languages);
+      } catch (err) {
+        console.error('Failed to fetch languages:', err);
+      }
+    };
+    fetchLanguages();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +43,7 @@ export default function WaitlistForm() {
           email,
           reason,
           password,
+          language,
         }),
       });
 
@@ -138,13 +158,9 @@ export default function WaitlistForm() {
             className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           >
             <option value="">Select a language</option>
-            <option value="English">English</option>
-            <option value="Spanish">Spanish</option>
-            <option value="French">French</option>
-            <option value="German">German</option>
-            <option value="Japanese">Japanese</option>
-            <option value="Chinese">Chinese</option>
-            <option value="Vietnamese">Vietnamese</option>
+            {languages.map((lang) => (
+              <option key={lang.id} value={lang.name}>{lang.name}</option>
+            ))}
           </select>
         </div>
         <button

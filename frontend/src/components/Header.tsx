@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationIcon from './NotificationIcon';
 
 export function Header() {
   const navigate = useNavigate();
@@ -46,39 +47,41 @@ export function Header() {
         </div>
         
         {userProfile && (
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center focus:outline-none"
-            >
-              <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
-                {(userProfile.username?.[0] || userProfile.email[0]).toUpperCase()}
-              </div>
-            </button>
-
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
-                <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                  Signed in as<br />
-                  <strong>{userProfile.email}</strong>
+          <div className="flex items-center space-x-4">
+            <NotificationIcon />
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="flex items-center focus:outline-none"
+              >
+                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
+                  {(userProfile.username?.[0] || userProfile.email[0]).toUpperCase()}
                 </div>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    navigate(userProfile.is_admin ? '/admin/profile' : '/profile');
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  View Profile
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
+                  <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                    Signed in as<br />
+                    <strong>{userProfile.email}</strong>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate(userProfile.is_admin ? '/admin/profile' : '/profile');
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

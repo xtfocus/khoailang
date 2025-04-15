@@ -1,8 +1,38 @@
+"""
+File        : main.py
+Description : FastAPI application entry point
+"""
+
+import contextlib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import api_router
+from openai import AsyncOpenAI
 
-app = FastAPI()
+from app.routes import api_router
+from app.config import ModelConfig
+from app.globals import clients, configs
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Standard FastAPI lifespan definition
+    """
+    # Initialize configurations
+    configs["app_config"] = ModelConfig()
+    app_config = configs["app_config"]
+
+    # Initialize OpenAI client
+    clients["openai"] = AsyncOpenAI(api_key=app_config.OPENAI_API_KEY)
+
+    yield
+
+    # Cleanup clients
+    if "openai" in clients:
+        await clients["openai"].close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
