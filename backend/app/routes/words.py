@@ -14,7 +14,7 @@ async def extract_words_from_txt(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only .txt files are supported")
     content = await file.read()
     words = content.decode().splitlines()
-    words = [w.strip() for w in words if w.strip()]
+    words = list(set([w.strip() for w in words if w.strip()]))
     return {"words": words}
 
 @router.post("/check-duplicates")
@@ -23,7 +23,6 @@ async def check_duplicates(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    # Query existing words for the current user
     existing_words = db.query(Flashcard.front)\
         .filter(Flashcard.owner_id == current_user.id)\
         .filter(Flashcard.front.in_(words))\
@@ -44,7 +43,6 @@ async def import_words(
     current_user = Depends(get_current_user)
 ):
     try:
-        # Create flashcards
         imported_words = []
         for word in words:
             flashcard = Flashcard(
@@ -52,11 +50,9 @@ async def import_words(
                 owner_id=current_user.id
             )
             db.add(flashcard)
-            db.flush()  # Get the ID without committing
+            db.flush()
             
-            # Link to catalogs if specified
             if catalog_ids:
-                # Check catalog ownership
                 for catalog_id in catalog_ids:
                     catalog = db.query(Catalog).filter(
                         Catalog.id == catalog_id,
