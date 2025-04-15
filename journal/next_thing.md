@@ -1,156 +1,115 @@
-# 1. Database Schema Updates
+#codebase 
+1. Generate quizzes: Probably we should do this right after importing words from UI --> save quiz to 'quizzes' table (so they can be reused later)
+Details:
+In backend, after generate flashcards, we also need to generate quizzes.
+For each flashcard, we:
+- detect if the flashcard is a phrase or a word (using LLM)
+- if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
+- if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
 
-## 1.1 Add Author and Visibility to Flashcards
-```sql
-ALTER TABLE flashcards ADD COLUMN author_id INTEGER REFERENCES users(id);
-ALTER TABLE flashcards ADD COLUMN visibility VARCHAR(20) CHECK (visibility IN ('private', 'public', 'shared'));
-ALTER TABLE flashcards ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-```
+(LLM usage is demonstrated in words.py)
 
-## 1.2 Create Flashcard Sharing Table
-```sql
-CREATE TABLE flashcard_shares (
-    flashcard_id INTEGER REFERENCES flashcards(id) ON DELETE CASCADE,
-    shared_with_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    can_modify BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (flashcard_id, shared_with_id)
-);
-```
+(Then we need to think of how we store these derivative data! For now, for simplicity, we don't store them, only store quizzes)
 
-## 1.3 Create Catalogs Tables
-```sql
-CREATE TABLE catalogs (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    visibility VARCHAR(20) CHECK (visibility IN ('private', 'public', 'shared')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+Then we generate quizzes using the information above (also using LLM).
+About quiz types that we can generate, check out #file:quizzes_design.md  (Ignore the types marked as "REMOVED")
 
-CREATE TABLE catalog_flashcards (
-    catalog_id INTEGER REFERENCES catalogs(id) ON DELETE CASCADE,
-    flashcard_id INTEGER REFERENCES flashcards(id) ON DELETE CASCADE,
-    added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (catalog_id, flashcard_id)
-);
+Input to create quizzes: target language (language_id in flashcards table) target word and its definition (front and back in `flashcards` table) +  quiz types (quiz_type table) ).
 
-CREATE TABLE catalog_shares (
-    catalog_id INTEGER REFERENCES catalogs(id) ON DELETE CASCADE,
-    shared_with_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    can_modify BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (catalog_id, shared_with_id)
-);
-```
 
-## 1.4 Create User Settings Table
-```sql
-CREATE TABLE user_settings (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    allow_duplicates BOOLEAN DEFAULT false,
-    default_visibility VARCHAR(20) DEFAULT 'private',
-    preferred_languages TEXT[] DEFAULT '{}',
-    ui_preferences JSONB DEFAULT '{}'
-);
-```
 
-# 2. Implementation Plan
+2. Quiz session:
 
-## Phase 1: Core Flashcard Management
-1. Update flashcard creation endpoints to include author and visibility
-2. Implement flashcard sharing functionality
-3. Add endpoints for managing flashcard visibility and sharing
-4. Create flashcard search/filter endpoints
+Allow user to pick catalog to start a quiz session from the dashboard
 
-## Phase 2: Catalog System
-1. Create CRUD endpoints for catalogs
-2. Implement catalog sharing functionality
-3. Add endpoints for managing flashcards within catalogs
-4. Ensure word uniqueness within catalogs
-5. Implement catalog search/filter functionality
+You can choose to learn from certain scope:
+- learn now: learn cards recommended by the system
+- learn due cards: learn cards that has <0.3 memory_strength
+- learn from catalog: learn within catalog
 
-## Phase 3: Word Population Features
-1. Implement single word entry endpoint
-2. Create bulk import functionality
-   - File upload processing
-   - Duplicate detection
-   - Preview generation
-2. Develop intelligent extraction system
-   - Document processing endpoint
-   - Word extraction logic
-   - Context preservation
-3. Build word recommendation system
-   - Integration with LLM for suggestions
-   - Topic-based word generation
+If no card available within the selected scope, tell user oops, no card available
 
-## Phase 4: User Settings & Preferences
-1. Create user settings management endpoints
-2. Implement global duplicate handling preferences
-3. Add language preferences management
-4. Build UI preferences storage system
+Otherwise, sample 10 words with lowest memory_strength value (user_flashcards table), within the scope, for a quiz session. 
 
-# 3. API Endpoints to Create
+Quiz sampling:
+  - use a ruling function to map memory_strength to suitable quiz format (stronger memory means user is ready for more challenging quiz). Currently, quizzes have difficulty ranging from 1-5. memory_strength is 0-100.
 
-## 3.1 Flashcard Management
-```
-POST /api/flashcards/create
-POST /api/flashcards/bulk-create
-PUT /api/flashcards/{id}
-DELETE /api/flashcards/{id}
-GET /api/flashcards/search
-POST /api/flashcards/{id}/share
-```
+  - while whe have 10 words only, we will test user on 20 quizzes.
 
-## 3.2 Catalog Management
-```
-POST /api/catalogs
-GET /api/catalogs
-PUT /api/catalogs/{id}
-DELETE /api/catalogs/{id}
-POST /api/catalogs/{id}/flashcards
-DELETE /api/catalogs/{id}/flashcards/{flashcard_id}
-POST /api/catalogs/{id}/share
-```
+If user fail on a flashcard, we de-escalate difficulty: we re-test user on that same flashcard but with the next difficult quiz.
+In contrast, if user pass on a flashcard, we escalate difficulty
 
-## 3.3 Word Population
-```
-POST /api/words/extract
-POST /api/words/suggest
-POST /api/words/import
-GET /api/words/check-duplicates
-```
+After each quiz:
+- record user performance in 'quizzes' table
+- update user performance in user_flashcards table (Need to come up with a formula on how we aggregate this)
 
-## 3.4 User Settings
-```
-GET /api/settings
-PUT /api/settings
-GET /api/settings/languages
-PUT /api/settings/languages
-```
+At any time user can end the session (by closing the browser or clicking an exit button). Then only performance on answered quizzes will be recorded.
 
-# 4. Next Steps
+3. formula
+For spaced repetition apps like Cerego **memory strength** is critical to optimizing when and what to review.
 
-1. **Start with Database Updates**
-   - Create migration scripts for new tables
-   - Update existing tables with new columns
-   - Add necessary indexes
 
-2. **Core Functionality**
-   - Basic flashcard CRUD with author tracking
-   - Simple catalog management
-   - User settings storage
+### 🔁 **Core Idea: Spaced Repetition + Memory Model**
+We model **memory strength** as a function that decays over time, and we update it based on how well a learner remembers a word during a quiz or review.
 
-3. **Advanced Features**
-   - Word extraction system
-   - Sharing functionality
-   - Duplicate management
-   - Catalog word uniqueness enforcement
+---
 
-4. **Integration Features**
-   - Quiz system integration
-   - Progress tracking updates
-   - Search and filter capabilities
+### 🧠 **1. Memory Strength Representation**
+For each row in user_flashcards , we track:
 
-Some of the things to be done will be dummy (things that require intelligent)
+- `last_reviewed: timestamp
+- `memory_strength`: a float between 0.0 (forgotten) and 1.0 (fully retained)
+- `success_streak`: how many times it's been answered correctly in a row
+- `next_review`: when this item should be shown again
+
+---
+
+### 📉 **2. Memory Decay Model**
+Use exponential decay with a constant rate for all words:
+
+```python
+from math import exp
+
+def get_memory_strength(last_reviewed_at, now, base_decay=0.2):
+    delta_days = (now - last_reviewed_at).days
+    return exp(-base_decay * delta_days)
+````
+
+base_decay can be tuned — e.g., 0.1 for slower decay, 0.3 for faster.
+
+🔄 3. Updating After Review
+
+When a student reviews a word:
+
+def update_memory_state(memory_strength, correct, success_streak):
+    if correct:
+        success_streak += 1
+        memory_strength = min(1.0, memory_strength + 0.15 + 0.05 * success_streak)
+        interval = 1 * (2 ** success_streak)  # Space further apart
+    else:
+        success_streak = 0
+        memory_strength = max(0.1, memory_strength * 0.5)
+        interval = 1  # Show again tomorrow
+
+    next_review_at = today + timedelta(days=interval)
+    return memory_strength, success_streak, next_review_at
+
+This creates an adaptive spaced repetition effect:
+
+    More corrects → higher memory strength and longer intervals.
+
+    A mistake → drops memory strength and shows the word sooner.---
+
+
+
+Things we haven't covered: Catalog word uniqueness enforcement. Need to check this quick if it has been implemented. See if we import word and add them to catalog at the same time, and duplication happens, we might need to warn user that duplicates x,z,y will not be added to catalog.
+Catalog_flashcards doesn't have "front" column so if we want to check uniqueness we need to join it with flashcard table.
+Also we need to make sure each catalog belongs to a single language. So, if user choose English language during import step , we can only suggest English catalogs in that step.
+So far we havnt' cover create catalogs. We should allow user to create their catalog from cards they have access to (shared or own). To create a catalog, simply enter a form:
+- Catalog's name: type in
+- Target Language: drop down select
+- Add flashcards to it. Here they can use a dropdown to browse accessible flashcards (cards they have access to and belong to the target language). They can also use a magic button to select suitable flashcards from the accessible ones. Then clicking confirm.
+
+Must Enforce word uniqueness in catalog. If violated, warning user and recommend deselecting that word/flashcard.
+Each catalog might have a lot of flashcards (up to 250), so the UI design must takes this into consideration.
+
