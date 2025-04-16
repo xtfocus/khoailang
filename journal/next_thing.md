@@ -113,3 +113,8 @@ So far we havnt' cover create catalogs. We should allow user to create their cat
 Must Enforce word uniqueness in catalog. If violated, warning user and recommend deselecting that word/flashcard.
 Each catalog might have a lot of flashcards (up to 250), so the UI design must takes this into consideration.
 
+
+Bell and whistle:
+ - There should be a table to represent user's collection. Then we allow user to discover public catalog, and add to their current collection.
+ - Technically we can use `shared_with_id`  in catalog_shares to monitor such thing but it wouldn't be very clear if user actively finds that catalog of is shared with.
+- Public categories should 
