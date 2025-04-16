@@ -4,6 +4,7 @@ import { HiExclamationTriangle } from 'react-icons/hi2';
 import axios from '../config/axios';
 import type { AxiosError } from '../config/axios';
 import { Language, Flashcard } from '../types';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface ApiError {
   detail: string;
@@ -12,12 +13,14 @@ interface ApiError {
 export function CreateCatalog(): JSX.Element {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [targetLanguage, setTargetLanguage] = useState<number | null>(null);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [availableFlashcards, setAvailableFlashcards] = useState<Flashcard[]>([]);
   const [selectedFlashcards, setSelectedFlashcards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const fetchLanguages = async (): Promise<void> => {
@@ -37,7 +40,6 @@ export function CreateCatalog(): JSX.Element {
       setAvailableFlashcards([]);
       return;
     }
-
     const fetchFlashcards = async (): Promise<void> => {
       try {
         const response = await axios.get(`/api/catalogs/accessible-flashcards/${targetLanguage}`);
@@ -72,8 +74,10 @@ export function CreateCatalog(): JSX.Element {
     try {
       const response = await axios.post('/api/catalogs/create', {
         name: name.trim(),
+        description: description.trim(),
         target_language_id: targetLanguage,
-        flashcard_ids: selectedFlashcards
+        flashcard_ids: selectedFlashcards,
+        visibility: isPublic ? 'public' : 'private'
       });
 
       if (response.data.notification) {
@@ -112,14 +116,6 @@ export function CreateCatalog(): JSX.Element {
     });
   };
 
-  const handleMagicSelect = () => {
-    const remainingCards = availableFlashcards
-      .filter(card => !selectedFlashcards.includes(card.id))
-      .slice(0, 50);
-    
-    setSelectedFlashcards(prev => [...prev, ...remainingCards.map(card => card.id)]);
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-2xl font-bold mb-6">Create New Catalog</h1>
@@ -138,6 +134,20 @@ export function CreateCatalog(): JSX.Element {
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="Enter catalog name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description (Optional)
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Enter catalog description"
               />
             </div>
 
@@ -162,17 +172,40 @@ export function CreateCatalog(): JSX.Element {
           </div>
         </div>
 
+        <div className="flex items-center space-x-4">
+          <button
+            type="button"
+            onClick={() => setIsPublic(!isPublic)}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              isPublic 
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            {isPublic ? (
+              <>
+                <Eye className="w-4 h-4 mr-2" />
+                Public
+              </>
+            ) : (
+              <>
+                <EyeOff className="w-4 h-4 mr-2" />
+                Private
+              </>
+            )}
+          </button>
+          <span className="text-sm text-gray-600">
+            {isPublic 
+              ? 'Anyone can view this catalog'
+              : 'Only you and people you share with can view this catalog'
+            }
+          </span>
+        </div>
+
         {targetLanguage && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Select Flashcards</h2>
-              <button
-                type="button"
-                onClick={handleMagicSelect}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Magic Select
-              </button>
             </div>
 
             <div className="overflow-y-auto max-h-96 border border-gray-200 rounded-md">

@@ -1,7 +1,12 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+import enum
+
+class CatalogVisibility(str, enum.Enum):
+    PUBLIC = "public"     # Anyone can view
+    PRIVATE = "private"   # Only shared users can view
 
 class Catalog(Base):
     __tablename__ = "catalogs"
@@ -9,7 +14,7 @@ class Catalog(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    visibility = Column(String(50), default="private")
+    visibility = Column(Enum(CatalogVisibility), default=CatalogVisibility.PRIVATE, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

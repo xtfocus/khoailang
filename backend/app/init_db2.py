@@ -161,7 +161,7 @@ def create_dummy_flashcards(session: Session, catalogs: dict, users: dict) -> No
             flashcard = Flashcard(
                 front=front,
                 back=back,
-                language_id=english_language.id,  # Use language ID instead of code
+                language_id=english_language.id,  
                 owner_id=users["quang"].id,  # All flashcards are authored by Quang
             )
             session.add(flashcard)

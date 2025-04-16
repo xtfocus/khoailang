@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationIcon from './NotificationIcon';
@@ -43,7 +43,12 @@ export function Header() {
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
-          <h1 className="text-2xl font-bold text-gray-900">KhoaiLang</h1>
+          <Link 
+            to={userProfile?.is_admin ? '/admin' : '/dashboard'} 
+            className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors"
+          >
+            KhoaiLang
+          </Link>
         </div>
         
         {userProfile && (

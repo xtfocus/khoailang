@@ -85,11 +85,23 @@ class Catalog:
     id: Integer
     name: String
     description: Text
-    visibility: String
+    visibility: CatalogVisibility  # Enum: 'public' or 'private'
     owner_id: Integer (FK)
+    created_at: DateTime
 ```
 
-### **4. Learning System**
+### **4. Sharing System**
+The sharing system follows a simple, catalog-based approach:
+- Catalogs can be either public or private
+- Public catalogs are visible to all users
+- Private catalogs are only visible to:
+  - The owner
+  - Users with explicit sharing entries in catalog_shares
+- When a catalog is shared, all its flashcards become accessible to the shared user
+- No individual flashcard sharing - sharing is managed at the catalog level
+- Changes to flashcards are instantly visible to all users with access
+
+### **5. Learning System**
 #### Quiz System
 - Multiple quiz types with difficulty levels
 - Progress tracking and scoring
@@ -102,7 +114,7 @@ class Catalog:
 - Review scheduling
 - Success streak tracking
 
-### **5. API Routes**
+### **6. API Routes**
 #### Authentication Routes (routes/auth.py)
 - User registration with waitlist system
 - JWT-based authentication

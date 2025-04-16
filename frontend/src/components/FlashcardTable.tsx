@@ -2,76 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from '../config/axios';
 import { Flashcard } from '../types';
 
-interface ShareItem {
-  flashcardId: string;
-  email: string;
-}
-
-interface ShareModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onShare: (emails: string[]) => void;
-  selectedCards: Flashcard[];
-}
-
-const ShareModal = ({ isOpen, onClose, onShare, selectedCards }: ShareModalProps) => {
-  const [emails, setEmails] = useState('');
-  const [error, setError] = useState('');
-
-  const handleShare = async () => {
-    const emailList = emails.split(',').map(e => e.trim()).filter(e => e);
-    if (emailList.length === 0) {
-      setError('Please enter at least one email');
-      return;
-    }
-    onShare(emailList);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4">Share Flashcards</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Sharing {selectedCards.length} flashcard(s)
-        </p>
-        <textarea
-          className="w-full p-2 border rounded mb-4"
-          placeholder="Enter email addresses (comma-separated)"
-          value={emails}
-          onChange={(e) => {
-            setEmails(e.target.value);
-            setError('');
-          }}
-        />
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleShare}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Share
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export function FlashcardTable(): JSX.Element {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showOnlyOwned, setShowOnlyOwned] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useEffect(() => {
     fetchFlashcards();
@@ -80,39 +16,19 @@ export function FlashcardTable(): JSX.Element {
   const fetchFlashcards = async (): Promise<void> => {
     try {
       const response = await axios.get('/api/flashcards/all');
-      setFlashcards(response.data.flashcards);
-      setError(null);
+      if (Array.isArray(response.data)) {
+        setFlashcards(response.data);
+      } else if (Array.isArray(response.data.flashcards)) {
+        setFlashcards(response.data.flashcards);
+      } else {
+        setError('Invalid response format');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch flashcards';
       setError(errorMessage);
+      console.error('Error fetching flashcards:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleShare = async (emails: string[]): Promise<void> => {
-    try {
-      const response = await axios.post('/api/flashcards/share', {
-        flashcardIds: Array.from(selectedCards),
-        emails
-      });
-
-      const { newlyShared } = response.data.details as { 
-        newlyShared: ShareItem[]
-      };
-
-      // Display feedback through notification system
-      const event = new CustomEvent('flashcardShareSuccess', {
-        detail: { count: newlyShared.length }
-      });
-      window.dispatchEvent(event);
-
-      setIsShareModalOpen(false);
-      setSelectedCards(new Set());
-      setError(null);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to share flashcards';
-      setError(errorMessage);
     }
   };
 
@@ -143,13 +59,9 @@ export function FlashcardTable(): JSX.Element {
     setSelectedCards(newSelection);
   };
 
-  const displayedFlashcards = showOnlyOwned 
+  const displayedFlashcards = flashcards ? (showOnlyOwned 
     ? flashcards.filter(card => card.isOwner)
-    : flashcards;
-
-  const canShare = Array.from(selectedCards).every(
-    id => flashcards.find(card => card.id === id)?.isOwner
-  );
+    : flashcards) : [];
 
   if (loading) {
     return (
@@ -175,25 +87,12 @@ export function FlashcardTable(): JSX.Element {
             {showOnlyOwned ? 'Show All Cards' : 'Show My Cards Only'}
           </button>
           {selectedCards.size > 0 && (
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setIsShareModalOpen(true)}
-                disabled={!canShare}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  canShare
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Share
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </button>
           )}
         </div>
       </div>
@@ -231,15 +130,6 @@ export function FlashcardTable(): JSX.Element {
           </tbody>
         </table>
       </div>
-
-      <ShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        onShare={handleShare}
-        selectedCards={Array.from(selectedCards).map(id => 
-          flashcards.find(card => card.id === id)!
-        )}
-      />
       {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
     </div>
   );

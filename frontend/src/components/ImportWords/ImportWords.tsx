@@ -34,25 +34,46 @@ export function ImportWords(): JSX.Element {
   const [importStep, setImportStep] = useState<'select-method' | 'upload' | 'preview'>('select-method');
   const [areDuplicatesSelected, setAreDuplicatesSelected] = useState(true);
 
+  // Initial fetch of languages only
   useEffect(() => {
-    const fetchData = async (): Promise<void> => {
+    const fetchLanguages = async (): Promise<void> => {
       try {
-        const [catalogsRes, languagesRes] = await Promise.all([
-          axios.get('/api/catalogs/owned'),
-          axios.get('/api/words/languages')
-        ]);
-        setCatalogs(catalogsRes.data);
+        const languagesRes = await axios.get('/api/words/languages');
         setLanguages(languagesRes.data.languages);
         setError(null);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load catalogs or languages';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load languages';
         setError(errorMessage);
       }
     };
-    fetchData();
+    fetchLanguages();
   }, []);
 
+  // Fetch catalogs whenever language changes
+  useEffect(() => {
+    const fetchCatalogs = async (): Promise<void> => {
+      if (!selectedLanguage) {
+        setCatalogs([]);
+        return;
+      }
+
+      try {
+        const catalogsRes = await axios.get(`/api/catalogs/accessible-by-language/${selectedLanguage}`);
+        setCatalogs(catalogsRes.data);
+        setSelectedCatalogs([]); // Reset selected catalogs when language changes
+        setError(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load catalogs';
+        setError(errorMessage);
+      }
+    };
+    fetchCatalogs();
+  }, [selectedLanguage]);
+
   const handleWordsExtracted = async (extractedWords: Word[]): Promise<void> => {
+    // Set preview step immediately to prevent the upload box from reappearing
+    setImportStep('preview');
+    
     const nonDuplicateWords = extractedWords.filter(w => !w.isDuplicate);
     if (nonDuplicateWords.length > 0) {
       try {
@@ -76,7 +97,6 @@ export function ImportWords(): JSX.Element {
     }
     
     setWords(extractedWords);
-    setImportStep('preview');
   };
 
   const handleDuplicatesSelection = () => {
@@ -276,30 +296,38 @@ export function ImportWords(): JSX.Element {
               </button>
             </div>
 
-            {/* Section 3: Select Categories */}
+            {/* Section 3: Add to Catalogs */}
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                3. Select Categories (Optional)
+                3. Add to Catalogs (Optional)
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {catalogs.map((catalog) => (
-                  <label key={catalog.id} className="flex items-center space-x-3 p-3 rounded-md hover:bg-gray-100 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={selectedCatalogs.includes(catalog.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedCatalogs([...selectedCatalogs, catalog.id]);
-                        } else {
-                          setSelectedCatalogs(selectedCatalogs.filter(id => id !== catalog.id));
-                        }
-                      }}
-                      className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
-                    <span className="text-gray-700">{catalog.name}</span>
-                  </label>
-                ))}
-              </div>
+              {selectedLanguage ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {catalogs.length > 0 ? (
+                    catalogs.map((catalog) => (
+                      <label key={catalog.id} className="flex items-center space-x-3 p-3 rounded-md hover:bg-gray-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedCatalogs.includes(catalog.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCatalogs([...selectedCatalogs, catalog.id]);
+                            } else {
+                              setSelectedCatalogs(selectedCatalogs.filter(id => id !== catalog.id));
+                            }
+                          }}
+                          className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                        <span className="text-gray-700">{catalog.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 col-span-3">No catalogs found for the selected language. Create a catalog first to add words to it.</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500">Please select a language first to see available catalogs.</p>
+              )}
             </div>
 
             {error && (

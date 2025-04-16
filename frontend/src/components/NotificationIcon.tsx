@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { HiBell } from 'react-icons/hi2';
-import type { WordImportSuccessEvent, FlashcardShareSuccessEvent, CatalogCreatedEvent } from '../types/events';
+import type { 
+  WordImportSuccessEvent, 
+  FlashcardShareSuccessEvent, 
+  CatalogCreatedEvent,
+  CatalogVisibilityChangedEvent,
+  CatalogSharedEvent
+} from '../types/events';
 
 interface Notification {
   id: number;
@@ -36,14 +42,26 @@ export default function NotificationIcon(): JSX.Element {
       addNotification(event.detail.message);
     };
 
+    const handleCatalogVisibilityChanged = (event: CatalogVisibilityChangedEvent): void => {
+      addNotification(event.detail.message);
+    };
+
+    const handleCatalogShared = (event: CatalogSharedEvent): void => {
+      addNotification(event.detail.message);
+    };
+
     window.addEventListener('wordImportSuccess', handleImportSuccess as EventListener);
     window.addEventListener('flashcardShareSuccess', handleShareSuccess as EventListener);
     window.addEventListener('catalogCreated', handleCatalogCreated as EventListener);
+    window.addEventListener('catalogVisibilityChanged', handleCatalogVisibilityChanged as EventListener);
+    window.addEventListener('catalogShared', handleCatalogShared as EventListener);
     
     return () => {
       window.removeEventListener('wordImportSuccess', handleImportSuccess as EventListener);
       window.removeEventListener('flashcardShareSuccess', handleShareSuccess as EventListener);
       window.removeEventListener('catalogCreated', handleCatalogCreated as EventListener);
+      window.removeEventListener('catalogVisibilityChanged', handleCatalogVisibilityChanged as EventListener);
+      window.removeEventListener('catalogShared', handleCatalogShared as EventListener);
     };
   }, []);
 

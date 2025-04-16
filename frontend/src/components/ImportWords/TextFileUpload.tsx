@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import axios from '../../config/axios';
-import { useAuth } from '../../contexts/AuthContext';
 
 interface Word {
   front: string;
@@ -12,7 +11,6 @@ interface TextFileUploadProps {
 }
 
 const TextFileUpload: React.FC<TextFileUploadProps> = ({ onWordsExtracted }) => {
-  const { userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +30,11 @@ const TextFileUpload: React.FC<TextFileUploadProps> = ({ onWordsExtracted }) => 
       // Step 1: Extract words from file
       const formData = new FormData();
       formData.append('file', file);
-      const extractResponse = await axios.post('/api/words/txt/extract', formData);
+      const extractResponse = await axios.post('/api/words/txt/extract', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       const extractedWords = extractResponse.data.words;
 
       // Step 2: Validate words

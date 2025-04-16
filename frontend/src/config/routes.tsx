@@ -14,6 +14,7 @@ import ImportWords from '../components/ImportWords/ImportWords';
 import { FlashcardTable } from '../components/FlashcardTable';
 import { CreateCatalog } from '../components/CreateCatalog';
 import { CatalogList } from '../components/CatalogList';
+import { CatalogDetail } from '../components/CatalogDetail';
 
 export interface RouteConfig {
   path?: string; // Make path optional since index routes don't need it
@@ -158,6 +159,15 @@ export const routes: RouteConfig[] = [
     title: 'Create Catalog',
     description: 'Create a new flashcard catalog',
     breadcrumb: 'Create Catalog'
+  },
+  {
+    path: '/catalogs/:id',
+    element: <ProtectedRoute element={<CatalogDetail />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Catalog Details',
+    description: 'View and manage catalog details',
+    breadcrumb: 'Catalog Details'
   }
 ];
 

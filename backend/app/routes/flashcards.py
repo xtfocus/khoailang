@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, func, distinct
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Flashcard, UserFlashcard, User
-from app.models.sharing import FlashcardShare
+from app.models.catalog import CatalogFlashcard, Catalog
+from app.models.sharing import CatalogShare
 from app.dependencies.auth import get_current_user
 from typing import List
 
@@ -14,56 +15,44 @@ async def get_all_flashcards(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all flashcards the user has access to (owned + shared)"""
-    # Get flashcards owned by user
-    owned_flashcards = db.query(
-        Flashcard,
-        User.username.label("author_name")
-    ).join(
-        User, User.id == Flashcard.owner_id
-    ).filter(
-        Flashcard.owner_id == current_user.id
-    )
+    """Get all flashcards the user has access to (owned + from accessible catalogs)"""
+    # Get accessible catalog IDs
+    accessible_catalog_ids = db.query(Catalog.id).filter(
+        or_(
+            Catalog.owner_id == current_user.id,  # Owned catalogs
+            Catalog.visibility == "public",  # Public catalogs
+            Catalog.id.in_(  # Shared catalogs
+                db.query(CatalogShare.catalog_id)
+                .filter(CatalogShare.shared_with_id == current_user.id)
+            )
+        )
+    ).all()
+    accessible_catalog_ids = [c[0] for c in accessible_catalog_ids]
 
-    # Get flashcards shared with user
-    shared_flashcards = db.query(
-        Flashcard,
-        User.username.label("author_name")
-    ).join(
-        FlashcardShare, FlashcardShare.flashcard_id == Flashcard.id
-    ).join(
-        User, User.id == Flashcard.owner_id
-    ).filter(
-        FlashcardShare.shared_with_id == current_user.id
-    )
+    # Get all flashcards from accessible catalogs
+    flashcards = db.query(Flashcard)\
+        .outerjoin(CatalogFlashcard)\
+        .filter(
+            or_(
+                Flashcard.owner_id == current_user.id,  # Owned flashcards
+                CatalogFlashcard.catalog_id.in_(accessible_catalog_ids)  # Flashcards from accessible catalogs
+            )
+        ).distinct().all()
 
-    # Combine and format results
-    all_flashcards = []
-    seen_ids = set()
-
-    def format_flashcard(flashcard, author_name):
-        return {
-            "id": str(flashcard.id),
-            "front": flashcard.front,
-            "back": flashcard.back,
-            "authorName": author_name or "Unknown",
-            "language": flashcard.language.name if flashcard.language else "Unknown",
-            "isOwner": flashcard.owner_id == current_user.id
+    return [
+        {
+            "id": f.id,
+            "front": f.front,
+            "back": f.back,
+            "isOwner": f.owner_id == current_user.id,
+            "language": {
+                "id": f.language_id,
+                "name": f.language.name
+            } if f.language else None,
+            "authorName": f.owner.username or f.owner.email.split('@')[0]
         }
-
-    # Add owned flashcards
-    for flashcard, author_name in owned_flashcards:
-        if flashcard.id not in seen_ids:
-            seen_ids.add(flashcard.id)
-            all_flashcards.append(format_flashcard(flashcard, author_name))
-
-    # Add shared flashcards
-    for flashcard, author_name in shared_flashcards:
-        if flashcard.id not in seen_ids:
-            seen_ids.add(flashcard.id)
-            all_flashcards.append(format_flashcard(flashcard, author_name))
-
-    return {"flashcards": all_flashcards}
+        for f in flashcards
+    ]
 
 @router.get("/stats")
 async def get_user_stats(
@@ -76,12 +65,40 @@ async def get_user_stats(
         Flashcard.owner_id == current_user.id
     ).scalar()
 
-    # Count shared flashcards
-    shared_count = db.query(func.count(FlashcardShare.flashcard_id)).filter(
-        FlashcardShare.shared_with_id == current_user.id
+    # Count owned catalogs
+    owned_catalogs = db.query(func.count(Catalog.id)).filter(
+        Catalog.owner_id == current_user.id
     ).scalar()
 
-    # Get cards due for review
+    # Count shared catalogs (catalogs shared with current user)
+    shared_catalogs = db.query(func.count(Catalog.id)).filter(
+        Catalog.id.in_(
+            db.query(CatalogShare.catalog_id)
+            .filter(CatalogShare.shared_with_id == current_user.id)
+        )
+    ).scalar()
+
+    # Get accessible catalog IDs (public + shared)
+    accessible_catalog_ids = db.query(Catalog.id).filter(
+        or_(
+            Catalog.visibility == "public",
+            Catalog.id.in_(
+                db.query(CatalogShare.catalog_id)
+                .filter(CatalogShare.shared_with_id == current_user.id)
+            )
+        )
+    ).all()
+    accessible_catalog_ids = [c[0] for c in accessible_catalog_ids]
+
+    # Count shared flashcards (cards from accessible catalogs that user doesn't own)
+    shared_count = db.query(func.count(distinct(Flashcard.id)))\
+        .join(CatalogFlashcard)\
+        .filter(
+            Flashcard.owner_id != current_user.id,
+            CatalogFlashcard.catalog_id.in_(accessible_catalog_ids)
+        ).scalar()
+
+    # Get cards due for review 
     cards_to_review = db.query(func.count(UserFlashcard.id)).filter(
         UserFlashcard.user_id == current_user.id,
         UserFlashcard.next_review <= func.now()
@@ -94,85 +111,15 @@ async def get_user_stats(
 
     return {
         "totalCards": owned_count + shared_count,
+        "ownedCards": owned_count,
+        "sharedCards": shared_count,
         "cardsToReview": cards_to_review or 0,
         "averageLevel": float(avg_level or 0),
-        "streak": 0  # To be implemented later
+        "streak": 0,  # To be implemented later
+        "totalCatalogs": owned_catalogs + shared_catalogs,
+        "ownedCatalogs": owned_catalogs,
+        "sharedCatalogs": shared_catalogs
     }
-
-@router.post("/share")
-async def share_flashcards(
-    request: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Share flashcards with other users by email"""
-    flashcard_ids = request.get("flashcardIds", [])
-    emails = request.get("emails", [])
-
-    if not flashcard_ids or not emails:
-        raise HTTPException(status_code=400, detail="Missing flashcard IDs or email addresses")
-
-    # Verify all flashcards exist and are owned by current user
-    flashcards = db.query(Flashcard).filter(
-        Flashcard.id.in_(flashcard_ids),
-        Flashcard.owner_id == current_user.id
-    ).all()
-
-    if len(flashcards) != len(flashcard_ids):
-        raise HTTPException(
-            status_code=403,
-            detail="Some flashcards don't exist or you don't have permission to share them"
-        )
-
-    # Get target users
-    target_users = db.query(User).filter(
-        User.email.in_(emails),
-        User.is_admin == False  # Don't share with admin users
-    ).all()
-
-    invalid_emails = set(emails) - {user.email for user in target_users}
-    if invalid_emails:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Users not found: {', '.join(invalid_emails)}"
-        )
-
-    already_shared = []
-    newly_shared = []
-
-    # Create shares
-    for flashcard in flashcards:
-        for user in target_users:
-            # Check if already shared
-            existing_share = db.query(FlashcardShare).filter(
-                FlashcardShare.flashcard_id == flashcard.id,
-                FlashcardShare.shared_with_id == user.id
-            ).first()
-            
-            if existing_share:
-                already_shared.append((flashcard.id, user.email))
-            else:
-                share = FlashcardShare(
-                    flashcard_id=flashcard.id,
-                    shared_with_id=user.id
-                )
-                db.add(share)
-                newly_shared.append((flashcard.id, user.email))
-
-    try:
-        db.commit()
-        message = {
-            "newlyShared": [
-                {"flashcardId": flashcard_id, "email": email} for flashcard_id, email in newly_shared
-            ],
-            "alreadyShared": [
-                {"flashcardId": flashcard_id, "email": email} for flashcard_id, email in already_shared
-            ]
-        }
-        return {"message": "Flashcards sharing status", "details": message}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to share flashcards")
 
 @router.post("/delete")
 async def delete_flashcards(
@@ -180,32 +127,25 @@ async def delete_flashcards(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete flashcards or remove access to shared flashcards"""
+    """Delete owned flashcards only"""
     flashcard_ids = request.get("flashcardIds", [])
     if not flashcard_ids:
         raise HTTPException(status_code=400, detail="No flashcard IDs provided")
 
-    # Get all relevant flashcards
-    flashcards = db.query(Flashcard).filter(Flashcard.id.in_(flashcard_ids)).all()
+    # Get all relevant flashcards that user owns
+    flashcards = db.query(Flashcard).filter(
+        Flashcard.id.in_(flashcard_ids),
+        Flashcard.owner_id == current_user.id
+    ).all()
+
     if not flashcards:
-        raise HTTPException(status_code=404, detail="No flashcards found")
+        raise HTTPException(status_code=404, detail="No flashcards found or you don't have permission to delete them")
 
     try:
         for flashcard in flashcards:
-            if flashcard.owner_id == current_user.id:
-                # If user owns the flashcard, delete it entirely
-                db.delete(flashcard)
-            else:
-                # If it's a shared flashcard, remove the share
-                share = db.query(FlashcardShare).filter(
-                    FlashcardShare.flashcard_id == flashcard.id,
-                    FlashcardShare.shared_with_id == current_user.id
-                ).first()
-                if share:
-                    db.delete(share)
-
+            db.delete(flashcard)
         db.commit()
-        return {"message": "Flashcards deleted/unshared successfully"}
+        return {"message": "Flashcards deleted successfully"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to delete flashcards")

@@ -206,7 +206,7 @@ CREATE TABLE catalogs (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL, -- Name of the catalog
     description TEXT, -- Description of the catalog
-    visibility VARCHAR(50) DEFAULT 'private', -- Visibility of the catalog (public/private)
+    visibility VARCHAR(7) NOT NULL DEFAULT 'private', -- Visibility of the catalog ('public' or 'private')
     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Owner of the catalog
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the catalog was created
 );
@@ -216,9 +216,26 @@ CREATE TABLE catalogs (
 - **`id`**: Unique identifier for the catalog.
 - **`name`**: Name of the catalog.
 - **`description`**: Description of the catalog.
-- **`visibility`**: Visibility of the catalog (public/private).
+- **`visibility`**: Visibility of the catalog:
+  - 'private': Only accessible by owner and explicitly shared users
+  - 'public': Accessible by all users
 - **`owner_id`**: References the user who owns the catalog.
 - **`created_at`**: When the catalog was created.
+
+### **Access Control**
+- Public catalogs:
+  - Can be viewed by all users
+  - Can only be modified by the owner (who created it)
+  - Modifications include: adding/removing words, changing visibility, or deleting the catalog
+- Private catalogs:
+  - Can only be viewed by:
+    - The owner of the catalog
+    - Users with whom the catalog has been explicitly shared via catalog_shares
+  - Can only be modified by the owner
+- When a catalog is shared:
+  - Shared users gain read-only access to view all flashcards in the catalog
+  - Only the owner can modify the catalog or its contents
+  - Individual flashcard sharing is not supported - sharing is done at the catalog level
 
 ---
 
@@ -242,30 +259,7 @@ CREATE TABLE catalog_flashcards (
 
 ---
 
-## **10. Flashcard Shares Table**
-
-The `flashcard_shares` table manages sharing of individual flashcards.
-
-### **Schema**
-```sql
-CREATE TABLE flashcard_shares (
-    flashcard_id INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
-    shared_with_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    can_modify BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (flashcard_id, shared_with_id)
-);
-```
-
-### **Column Descriptions**
-- **`flashcard_id`**: References the flashcard being shared (part of composite primary key)
-- **`shared_with_id`**: References the user with whom the flashcard is shared (part of composite primary key)
-- **`can_modify`**: Whether the shared user can modify the flashcard
-- **`created_at`**: Logs the timestamp when the flashcard was shared
-
----
-
-## **11. Catalog Shares Table**
+## **10. Catalog Shares Table**
 
 The `catalog_shares` table manages sharing of catalogs.
 
@@ -274,7 +268,6 @@ The `catalog_shares` table manages sharing of catalogs.
 CREATE TABLE catalog_shares (
     catalog_id INTEGER NOT NULL REFERENCES catalogs(id) ON DELETE CASCADE,
     shared_with_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    can_modify BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (catalog_id, shared_with_id)
 );
@@ -283,12 +276,17 @@ CREATE TABLE catalog_shares (
 ### **Column Descriptions**
 - **`catalog_id`**: References the catalog being shared (part of composite primary key)
 - **`shared_with_id`**: References the user with whom the catalog is shared (part of composite primary key)
-- **`can_modify`**: Whether the shared user can modify the catalog
 - **`created_at`**: Logs the timestamp when the catalog was shared
+
+### **Sharing Rules**
+- Sharing a catalog gives access to all flashcards within that catalog
+- When a catalog is made public, no explicit sharing entries are needed
+- When a catalog is private, only users with explicit sharing entries can access it
+- Deleting a sharing entry immediately revokes access (unless the catalog is public)
 
 ---
 
-## **12. User Settings Table**
+## **11. User Settings Table**
 
 The `user_settings` table stores user preferences.
 
@@ -322,7 +320,6 @@ CREATE TABLE user_settings (
   - `quizzes` (tracks quiz attempts by users)
   - `chatbot_interactions` (logs user interactions with the chatbot)
   - `catalogs` (manages collections of flashcards)
-  - `flashcard_shares` (manages sharing of individual flashcards)
   - `catalog_shares` (manages sharing of catalogs)
   - `user_settings` (stores user preferences)
 
@@ -331,7 +328,6 @@ CREATE TABLE user_settings (
   - `user_flashcards` (tracks user-specific progress for each flashcard)
   - `quizzes` (tracks quiz attempts for specific flashcards)
   - `catalog_flashcards` (links flashcards to catalogs)
-  - `flashcard_shares` (manages sharing of individual flashcards)
 
 ### **Languages Table**
 - The `languages` table is referenced by:
@@ -411,17 +407,11 @@ CREATE TABLE user_settings (
 | 3   | 2          | 3            |
 | 4   | 2          | 4            |
 
-### Flashcard Shares Table
-| flashcard_id | shared_with_id | can_modify | created_at                |
-|--------------|----------------|------------|---------------------------|
-| 1            | 2              | false      | 2025-04-08T12:00:00+00:00 |
-| 2            | 2              | false      | 2025-04-08T12:30:00+00:00 |
-
 ### Catalog Shares Table
-| catalog_id | shared_with_id | can_modify | created_at                |
-|------------|----------------|------------|---------------------------|
-| 1          | 2              | false      | 2025-04-08T12:00:00+00:00 |
-| 2          | 1              | false      | 2025-04-08T12:30:00+00:00 |
+| catalog_id | shared_with_id | created_at                |
+|------------|----------------|---------------------------|
+| 1          | 2              | 2025-04-08T12:00:00+00:00 |
+| 2          | 1              | 2025-04-08T12:30:00+00:00 |
 | 3          | 2              | false      | 2025-04-08T13:00:00+00:00 |
 
 ### User Settings Table
