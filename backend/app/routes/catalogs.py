@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.models.catalog import Catalog, CatalogFlashcard
 from app.models.flashcard import Flashcard
@@ -63,10 +64,7 @@ async def get_accessible_flashcards(
             "id": flashcard.id,
             "front": flashcard.front,
             "back": flashcard.back,
-            "language": {
-                "id": flashcard.language.id,
-                "name": flashcard.language.name,
-            },
+            "language": flashcard.language.name,  # Return name instead of Language object
             "is_owner": is_owner
         }
 
@@ -137,23 +135,56 @@ async def create_catalog(
             detail=f"Duplicate words found: {'; '.join(duplicate_details)}"
         )
 
-    # Create catalog
-    new_catalog = Catalog(
-        name=catalog.name,
-        owner_id=current_user.id,
-        visibility="private",  # Default to private
-    )
-    db.add(new_catalog)
-    db.flush()  # Get the ID without committing
-
-    # Add flashcards to catalog
-    for flashcard_id in catalog.flashcard_ids:
-        catalog_flashcard = CatalogFlashcard(
-            catalog_id=new_catalog.id,
-            flashcard_id=flashcard_id
+    try:
+        # Create catalog
+        new_catalog = Catalog(
+            name=catalog.name,
+            owner_id=current_user.id,
+            visibility="private",  # Default to private
         )
-        db.add(catalog_flashcard)
+        db.add(new_catalog)
+        db.flush()  # Get the ID without committing
 
-    db.commit()
-    db.refresh(new_catalog)
-    return new_catalog
+        # Add flashcards to catalog
+        for flashcard_id in catalog.flashcard_ids:
+            catalog_flashcard = CatalogFlashcard(
+                catalog_id=new_catalog.id,
+                flashcard_id=flashcard_id
+            )
+            db.add(catalog_flashcard)
+
+        db.commit()
+        db.refresh(new_catalog)
+
+        # Format response with flashcards
+        response = {
+            "id": new_catalog.id,
+            "name": new_catalog.name,
+            "description": new_catalog.description,
+            "visibility": new_catalog.visibility,
+            "created_at": new_catalog.created_at,
+            "flashcards": [
+                {
+                    "id": f.id,
+                    "front": f.front,
+                    "back": f.back,
+                    "language": f.language.name  # Use the language name string
+                }
+                for f in new_catalog.flashcards
+            ]
+        }
+
+        # Add notification info to response
+        response["notification"] = {
+            "type": "success",
+            "message": f"Catalog '{new_catalog.name}' created with {len(new_catalog.flashcards)} words"
+        }
+
+        return response
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A catalog with the name '{catalog.name}' already exists"
+        )

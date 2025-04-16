@@ -108,7 +108,7 @@ Also we need to make sure each catalog belongs to a single language. So, if user
 So far we havnt' cover create catalogs. We should allow user to create their catalog from cards they have access to (shared or own). To create a catalog, simply enter a form:
 - Catalog's name: type in
 - Target Language: drop down select
-- Add flashcards to it. Here they can use a dropdown to browse accessible flashcards (cards they have access to and belong to the target language). They can also use a magic button to select suitable flashcards from the accessible ones. Then clicking confirm.
+- Add flashcards to it. Here they can use a dropdown to browse accessible flashcards (cards they have access to and belong to the target language). Then clicking confirm.
 
 Must Enforce word uniqueness in catalog. If violated, warning user and recommend deselecting that word/flashcard.
 Each catalog might have a lot of flashcards (up to 250), so the UI design must takes this into consideration.

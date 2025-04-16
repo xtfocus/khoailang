@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from '../config/axios';
+import { Flashcard } from '../types';
 
-interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  authorName: string;
-  language: string;
-  isOwner: boolean;
+interface ShareItem {
+  flashcardId: string;
+  email: string;
 }
 
 interface ShareModalProps {
@@ -68,9 +65,10 @@ const ShareModal = ({ isOpen, onClose, onShare, selectedCards }: ShareModalProps
   );
 };
 
-export function FlashcardTable() {
+export function FlashcardTable(): JSX.Element {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showOnlyOwned, setShowOnlyOwned] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -79,44 +77,31 @@ export function FlashcardTable() {
     fetchFlashcards();
   }, []);
 
-  const fetchFlashcards = async () => {
+  const fetchFlashcards = async (): Promise<void> => {
     try {
       const response = await axios.get('/api/flashcards/all');
       setFlashcards(response.data.flashcards);
-    } catch (error) {
-      console.error('Error fetching flashcards:', error);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch flashcards';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleShare = async (emails: string[]) => {
+  const handleShare = async (emails: string[]): Promise<void> => {
     try {
       const response = await axios.post('/api/flashcards/share', {
         flashcardIds: Array.from(selectedCards),
         emails
       });
 
-      const { newlyShared, alreadyShared } = response.data.details;
+      const { newlyShared } = response.data.details as { 
+        newlyShared: ShareItem[]
+      };
 
-      // Display feedback to the user
-      let message = '';
-      if (newlyShared.length > 0) {
-        message += `Successfully shared ${newlyShared.length} flashcard(s):\n`;
-        newlyShared.forEach(item => {
-          message += `- Flashcard ID: ${item.flashcardId}, Email: ${item.email}\n`;
-        });
-      }
-      if (alreadyShared.length > 0) {
-        message += `\nThe following flashcard(s) were already shared:\n`;
-        alreadyShared.forEach(item => {
-          message += `- Flashcard ID: ${item.flashcardId}, Email: ${item.email}\n`;
-        });
-      }
-
-      alert(message);
-
-      // Dispatch notification event
+      // Display feedback through notification system
       const event = new CustomEvent('flashcardShareSuccess', {
         detail: { count: newlyShared.length }
       });
@@ -124,13 +109,14 @@ export function FlashcardTable() {
 
       setIsShareModalOpen(false);
       setSelectedCards(new Set());
-    } catch (error) {
-      console.error('Error sharing flashcards:', error);
-      alert(error.message);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to share flashcards';
+      setError(errorMessage);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (): Promise<void> => {
     if (!confirm('Are you sure you want to delete the selected flashcards?')) return;
 
     try {
@@ -138,11 +124,12 @@ export function FlashcardTable() {
         flashcardIds: Array.from(selectedCards)
       });
       
-      await fetchFlashcards(); // Refresh the list
+      await fetchFlashcards();
       setSelectedCards(new Set());
-    } catch (error) {
-      console.error('Error deleting flashcards:', error);
-      alert('Failed to delete flashcards');
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete flashcards';
+      setError(errorMessage);
     }
   };
 
@@ -238,7 +225,7 @@ export function FlashcardTable() {
                 <td className="px-6 py-4 whitespace-nowrap text-gray-900">{card.front}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-900">{card.back}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-500">{card.authorName}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{card.language}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{card.language?.name}</td>
               </tr>
             ))}
           </tbody>
@@ -253,6 +240,7 @@ export function FlashcardTable() {
           flashcards.find(card => card.id === id)!
         )}
       />
+      {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
     </div>
   );
 }

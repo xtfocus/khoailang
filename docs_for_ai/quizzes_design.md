@@ -74,35 +74,6 @@ D. Clear
 
 ---
 
-\[REMOVED\]
-
-### ✅ 5. **Synonym Matching (Pairing)**  
-⚖️ Difficulty: **3**
-
-| Word        | Synonym         |
-|-------------|------------------|
-| Silent      | A. Quiet         |
-| Smart       | B. Intelligent   |
-| Rapid       | C. Fast          |
-| Start       | D. Begin         |
-
-✅ Matches: Silent → A, Smart → B, Rapid → C, Start → D
-
----
-\[REMOVED\]
-### ✅ 6. **Antonym Matching (Pairing)**  
-✏️ Difficulty: **3**
-
-| Word        | Antonym         |
-|-------------|------------------|
-| Hot         | A. Cold          |
-| Light       | B. Heavy         |
-| Happy       | C. Sad           |
-| Win         | D. Lose          |
-
-✅ Matches: Hot → A, etc.
-
----
 
 ### ✅ 7. **Open-Ended Cloze (Cloze)**  
 🧗‍♂️ Difficulty: **5**

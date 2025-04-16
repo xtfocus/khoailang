@@ -33,9 +33,10 @@ About salt:
 ### 2. JWT Authentication
 Configuration (`backend/app/dependencies/auth.py`):
 ```python
-SECRET_KEY = "your-secret-key-keep-it-secret"  # Changed in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Load configuration from environment variables with defaults
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "development-secret-key-please-change")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 ```
 
 Token Structure:
@@ -51,7 +52,16 @@ Implemented in the User model (`backend/app/models/user.py`):
 
 ## Authentication Flow
 
-### 1. User Registration (Signup)
+### 1. Waitlist Registration
+Endpoint: `POST /auth/waitlist`
+
+Process:
+1. User submits waitlist entry with email, name, and optional reason
+2. Entry is stored in waitlist table with pending status
+3. Admin reviews and approves/rejects entries
+4. Upon approval, user can complete registration
+
+### 2. User Registration (Signup)
 Endpoint: `POST /auth/signup`
 
 Process:
@@ -65,7 +75,7 @@ Security checks:
 - Username uniqueness check
 - Password is never returned or logged
 
-### 2. User Login
+### 3. User Login
 Endpoint: `POST /auth/login`
 
 Process:
@@ -81,7 +91,7 @@ Example response:
 }
 ```
 
-### 3. Protected Routes
+### 4. Protected Routes
 All protected endpoints use the `get_current_user` dependency:
 - Extracts token from Authorization header
 - Validates token signature and expiration
@@ -157,10 +167,17 @@ Regular users can:
    - Invalidation on logout
 
 3. **Error Handling**:
-   - Generic error messages for security
-   - No sensitive information in responses
-   - Custom exception handlers for validation
-   - Proper HTTP status codes
+   - Invalid credentials return 401 with "Could not validate credentials"
+   - Admin-only actions return 403 with "Only admins can perform this action" 
+   - Pydantic validation errors return 422 with detailed validation messages
+   - Request failures return consistent error format:
+   ```json
+   {
+       "detail": "Error message here"
+   }
+   ```
+   - Password verification failures do not reveal whether email or password was incorrect
+   - Token expiration handled gracefully with proper 401 response
 
 4. **Database Security**:
    - Prepared statements via SQLAlchemy
@@ -183,8 +200,14 @@ Regular users can:
 
 ## Initial Setup
 
-The system automatically creates an admin user during database initialization (`backend/app/init_db.py`):
+The system automatically creates an admin user during database initialization (`backend/app/init_db.py`). Environment variables are used to configure the admin account:
+
 ```python
+# Required environment variables
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
 admin_user = User(
     email=ADMIN_EMAIL,
     username=ADMIN_USERNAME,
@@ -193,7 +216,14 @@ admin_user = User(
 )
 ```
 
-**Note**: Admin credentials should be securely set via environment variables in production.
+Required environment variables (see `.env.example`):
+```env
+ADMIN_EMAIL=your_admin_email@example.com
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_secure_password
+```
+
+**Note**: These credentials must be securely set via environment variables in production.
 
 ## File References
 

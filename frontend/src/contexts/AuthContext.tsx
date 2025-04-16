@@ -1,12 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-
-export interface UserProfile {
-  id: number;
-  email: string;
-  username: string | null;
-  is_admin: boolean;
-  created_at: string;
-}
+import { UserProfile } from '../types';
 
 interface AuthContextType {
   token: string | null;

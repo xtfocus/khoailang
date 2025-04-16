@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 
 class CatalogCreate(BaseModel):
@@ -11,7 +11,10 @@ class CatalogFlashcardBase(BaseModel):
     id: int
     front: str
     back: str
-    language: str
+    language: str  # Changed from Language object to string
+    
+    class Config:
+        from_attributes = True
 
 class CatalogBase(BaseModel):
     id: int
@@ -25,3 +28,4 @@ class CatalogBase(BaseModel):
 
 class CatalogResponse(CatalogBase):
     flashcards: List[CatalogFlashcardBase]
+    notification: Optional[Dict[str, str]] = None

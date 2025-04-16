@@ -1,28 +1,28 @@
-import axios from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-// Create axios instance
-const axiosInstance = axios.create();
-
-// Request interceptor
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+const instance = axios.create({
+  baseURL: '/',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
   }
-);
+});
 
-// Response interceptor
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+instance.interceptors.request.use((config: AxiosRequestConfig) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`
+    };
+  }
+  return config;
+});
+
+instance.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // If we get a 401, clear auth state and trigger logout
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('app-logout'));
     }
@@ -30,4 +30,5 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export default axiosInstance;
+export { AxiosError };
+export default instance;

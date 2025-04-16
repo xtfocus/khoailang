@@ -2,41 +2,29 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiExclamationTriangle } from 'react-icons/hi2';
 import axios from '../config/axios';
+import type { AxiosError } from '../config/axios';
+import { Language, Flashcard } from '../types';
 
-interface Language {
-  id: number;
-  name: string;
-  code: string;
+interface ApiError {
+  detail: string;
 }
 
-interface Flashcard {
-  id: number;
-  front: string;
-  back: string;
-  language: {
-    id: number;
-    name: string;
-    code: string;
-  };
-  is_owner: boolean;
-}
-
-export function CreateCatalog() {
+export function CreateCatalog(): JSX.Element {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [targetLanguage, setTargetLanguage] = useState<number | null>(null);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [availableFlashcards, setAvailableFlashcards] = useState<Flashcard[]>([]);
-  const [selectedFlashcards, setSelectedFlashcards] = useState<number[]>([]);
+  const [selectedFlashcards, setSelectedFlashcards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch languages on component mount
   useEffect(() => {
-    const fetchLanguages = async () => {
+    const fetchLanguages = async (): Promise<void> => {
       try {
         const response = await axios.get('/api/words/languages');
         setLanguages(response.data.languages);
+        setError(null);
       } catch (err) {
         setError('Failed to load languages');
       }
@@ -44,19 +32,18 @@ export function CreateCatalog() {
     fetchLanguages();
   }, []);
 
-  // Fetch available flashcards when language is selected
   useEffect(() => {
     if (!targetLanguage) {
       setAvailableFlashcards([]);
       return;
     }
 
-    const fetchFlashcards = async () => {
+    const fetchFlashcards = async (): Promise<void> => {
       try {
         const response = await axios.get(`/api/catalogs/accessible-flashcards/${targetLanguage}`);
         setAvailableFlashcards(response.data);
-        // Clear selected flashcards when language changes
         setSelectedFlashcards([]);
+        setError(null);
       } catch (err) {
         setError('Failed to load flashcards');
       }
@@ -64,7 +51,7 @@ export function CreateCatalog() {
     fetchFlashcards();
   }, [targetLanguage]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!name.trim()) {
       setError('Please enter a catalog name');
@@ -83,20 +70,28 @@ export function CreateCatalog() {
     setError(null);
 
     try {
-      await axios.post('/api/catalogs/create', {
+      const response = await axios.post('/api/catalogs/create', {
         name: name.trim(),
         target_language_id: targetLanguage,
         flashcard_ids: selectedFlashcards
       });
+
+      if (response.data.notification) {
+        const event = new CustomEvent('catalogCreated', {
+          detail: { message: response.data.notification.message }
+        });
+        window.dispatchEvent(event);
+      }
+
       navigate('/catalogs');
-    } catch (err: any) {
-      const errorDetail = err.response?.data?.detail;
-      if (errorDetail && typeof errorDetail === 'string') {
-        // Handle duplicate word errors specially
-        if (errorDetail.includes('Duplicate words found:')) {
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      if (error.response?.data?.detail) {
+        const errorDetail = error.response.data.detail;
+        if (typeof errorDetail === 'string' && errorDetail.includes('Duplicate words found:')) {
           setError('Duplicate words detected. Please deselect one of the duplicates: ' + errorDetail);
         } else {
-          setError(errorDetail);
+          setError(String(errorDetail));
         }
       } else {
         setError('Failed to create catalog');
@@ -106,7 +101,7 @@ export function CreateCatalog() {
     }
   };
 
-  const handleFlashcardSelect = (flashcardId: number) => {
+  const handleFlashcardSelect = (flashcardId: string) => {
     setSelectedFlashcards(prev => {
       const isSelected = prev.includes(flashcardId);
       if (isSelected) {
@@ -118,7 +113,6 @@ export function CreateCatalog() {
   };
 
   const handleMagicSelect = () => {
-    // Simple implementation: select first 50 unselected cards
     const remainingCards = availableFlashcards
       .filter(card => !selectedFlashcards.includes(card.id))
       .slice(0, 50);
@@ -131,7 +125,6 @@ export function CreateCatalog() {
       <h1 className="text-2xl font-bold mb-6">Create New Catalog</h1>
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info Section */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="space-y-4">
             <div>
@@ -169,7 +162,6 @@ export function CreateCatalog() {
           </div>
         </div>
 
-        {/* Flashcards Selection Section */}
         {targetLanguage && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">

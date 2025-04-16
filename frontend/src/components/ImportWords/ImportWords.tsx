@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import ImportOptions from './ImportOptions';
 import TextFileUpload from './TextFileUpload';
-import { useAuth } from '../../contexts/AuthContext';
 import { HiCheckCircle, HiExclamationTriangle, HiPlusCircle } from 'react-icons/hi2';
 import axios from '../../config/axios';
+import type { AxiosError } from '../../config/axios';
+import { Flashcard, Language } from '../../types';
 
 interface Word {
   front: string;
@@ -18,18 +19,11 @@ interface Catalog {
   user_id: number;
 }
 
-interface Language {
-  id: number;
-  name: string;
+interface ApiError {
+  detail: string;
 }
 
-interface Flashcard {
-  front: string;
-  back: string;
-}
-
-export function ImportWords() {
-  const { } = useAuth();
+export function ImportWords(): JSX.Element {
   const [words, setWords] = useState<Word[]>([]);
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -40,9 +34,8 @@ export function ImportWords() {
   const [importStep, setImportStep] = useState<'select-method' | 'upload' | 'preview'>('select-method');
   const [areDuplicatesSelected, setAreDuplicatesSelected] = useState(true);
 
-  // Fetch user's catalogs and languages
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (): Promise<void> => {
       try {
         const [catalogsRes, languagesRes] = await Promise.all([
           axios.get('/api/catalogs/owned'),
@@ -50,15 +43,16 @@ export function ImportWords() {
         ]);
         setCatalogs(catalogsRes.data);
         setLanguages(languagesRes.data.languages);
+        setError(null);
       } catch (err) {
-        setError('Failed to load catalogs or languages');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load catalogs or languages';
+        setError(errorMessage);
       }
     };
     fetchData();
   }, []);
 
-  const handleWordsExtracted = async (extractedWords: Word[]) => {
-    // Generate flashcards for non-duplicate words immediately after extraction
+  const handleWordsExtracted = async (extractedWords: Word[]): Promise<void> => {
     const nonDuplicateWords = extractedWords.filter(w => !w.isDuplicate);
     if (nonDuplicateWords.length > 0) {
       try {
@@ -72,10 +66,12 @@ export function ImportWords() {
           ...word,
           selected: true,
           back: word.isDuplicate ? '(duplicate - will show existing definition)' : 
-                flashcardsWithDefinitions.find((f: Flashcard) => f.front === word.front)?.back || ''
+                flashcardsWithDefinitions.find(f => f.front === word.front)?.back || ''
         }));
+        setError(null);
       } catch (err) {
-        setError('Failed to generate definitions');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to generate definitions';
+        setError(errorMessage);
       }
     }
     
@@ -108,7 +104,7 @@ export function ImportWords() {
     ));
   };
 
-  const handleImport = async () => {
+  const handleImport = async (): Promise<void> => {
     if (!selectedLanguage) {
       setError('Please select a target language');
       return;
@@ -124,8 +120,7 @@ export function ImportWords() {
     setError(null);
 
     try {
-      // Import the words directly since definitions are already generated
-      const importResponse = await axios.post(
+      await axios.post(
         `/api/words/import?language_id=${selectedLanguage}`, 
         {
           words: selectedWords.map(w => ({
@@ -145,7 +140,12 @@ export function ImportWords() {
       setSelectedCatalogs([]);
       setImportStep('select-method');
     } catch (err) {
-      setError('Failed to import words');
+      const error = err as AxiosError<ApiError>;
+      if (error.response?.data?.detail) {
+        setError(String(error.response.data.detail));
+      } else {
+        setError('Failed to import words');
+      }
     } finally {
       setImporting(false);
     }

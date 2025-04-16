@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiBell } from 'react-icons/hi2';
+import type { WordImportSuccessEvent, FlashcardShareSuccessEvent, CatalogCreatedEvent } from '../types/events';
 
 interface Notification {
   id: number;
@@ -8,11 +9,11 @@ interface Notification {
   read: boolean;
 }
 
-export default function NotificationIcon() {
+export default function NotificationIcon(): JSX.Element {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const addNotification = (message: string) => {
+  const addNotification = (message: string): void => {
     const newNotification = {
       id: Date.now(),
       message,
@@ -22,22 +23,27 @@ export default function NotificationIcon() {
     setNotifications(prev => [newNotification, ...prev]);
   };
 
-  // Subscribe to notification events
   useEffect(() => {
-    const handleImportSuccess = (event: CustomEvent<{ count: number }>) => {
+    const handleImportSuccess = (event: WordImportSuccessEvent): void => {
       addNotification(`Successfully imported ${event.detail.count} words`);
     };
 
-    const handleShareSuccess = (event: CustomEvent<{ count: number }>) => {
+    const handleShareSuccess = (event: FlashcardShareSuccessEvent): void => {
       addNotification(`Successfully shared ${event.detail.count} flashcard${event.detail.count > 1 ? 's' : ''}`);
     };
 
-    window.addEventListener('wordImportSuccess' as any, handleImportSuccess);
-    window.addEventListener('flashcardShareSuccess' as any, handleShareSuccess);
+    const handleCatalogCreated = (event: CatalogCreatedEvent): void => {
+      addNotification(event.detail.message);
+    };
+
+    window.addEventListener('wordImportSuccess', handleImportSuccess as EventListener);
+    window.addEventListener('flashcardShareSuccess', handleShareSuccess as EventListener);
+    window.addEventListener('catalogCreated', handleCatalogCreated as EventListener);
     
     return () => {
-      window.removeEventListener('wordImportSuccess' as any, handleImportSuccess);
-      window.removeEventListener('flashcardShareSuccess' as any, handleShareSuccess);
+      window.removeEventListener('wordImportSuccess', handleImportSuccess as EventListener);
+      window.removeEventListener('flashcardShareSuccess', handleShareSuccess as EventListener);
+      window.removeEventListener('catalogCreated', handleCatalogCreated as EventListener);
     };
   }, []);
 

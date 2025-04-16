@@ -4,6 +4,34 @@ This document outlines the database schema for the **Khoai Lang** language learn
 
 ---
 
+## **0. Users Table**
+
+The `users` table stores core user data and authentication information.
+
+### **Schema**
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(255) UNIQUE,
+    hashed_password TEXT NOT NULL,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### **Column Descriptions**
+- **`id`**: Unique identifier for the user.
+- **`email`**: User's email address (unique).
+- **`username`**: Optional username (unique if provided).
+- **`hashed_password`**: Bcrypt-hashed password.
+- **`is_admin`**: Whether the user has admin privileges.
+- **`created_at`**: When the user account was created.
+- **`updated_at`**: When the user account was last updated.
+
+---
+
 ## **1. Flashcards Table**
 
 The `flashcards` table stores the core data for individual flashcards.
@@ -38,9 +66,9 @@ CREATE TABLE user_flashcards (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     flashcard_id INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
-    memory_strength INTEGER DEFAULT 0 CHECK (memory_strength >= 0 AND memory_strength <= 100), -- A score representing how well the user remembers the flashcard
-    last_reviewed TIMESTAMP, -- The last time the user reviewed the flashcard
-    next_review TIMESTAMP -- The next scheduled review time for the flashcard
+    memory_strength FLOAT DEFAULT 0.0, -- A float between 0.0 (forgotten) and 1.0 (fully retained)
+    last_reviewed TIMESTAMP WITH TIME ZONE,
+    next_review TIMESTAMP WITH TIME ZONE
 );
 ```
 
@@ -48,9 +76,9 @@ CREATE TABLE user_flashcards (
 - **`id`**: Unique identifier for the record.
 - **`user_id`**: References the user interacting with the flashcard.
 - **`flashcard_id`**: References the flashcard being tracked.
-- **`memory_strength`**: An integer score (0-100) representing how well the user remembers the flashcard.
-- **`last_reviewed`**: The last time the user reviewed the flashcard.
-- **`next_review`**: The next scheduled review time for the flashcard.
+- **`memory_strength`**: A float between 0.0 (forgotten) and 1.0 (fully retained).
+- **`last_reviewed`**: The last time the user reviewed the flashcard (with timezone).
+- **`next_review`**: The next scheduled review time for the flashcard (with timezone).
 
 ---
 
@@ -82,10 +110,10 @@ CREATE TABLE quizzes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     flashcard_id INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
-    target_language VARCHAR(50) NOT NULL, -- The language of the flashcard being tested
-    quiz_type_id INTEGER NOT NULL REFERENCES quiz_types(id) ON DELETE RESTRICT, -- The type of quiz
-    score INTEGER CHECK (score >= 0 AND score <= 100), -- The user's performance score for the quiz
-    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the quiz was completed
+    language_id INTEGER NOT NULL REFERENCES languages(id) ON DELETE RESTRICT,
+    quiz_type_id INTEGER NOT NULL REFERENCES quiz_types(id) ON DELETE RESTRICT,
+    score FLOAT,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -93,9 +121,9 @@ CREATE TABLE quizzes (
 - **`id`**: Unique identifier for each quiz attempt.
 - **`user_id`**: Links the quiz to the user who took it.
 - **`flashcard_id`**: Links the quiz to the specific flashcard being tested.
-- **`target_language`**: Specifies the language of the flashcard being tested.
+- **`language_id`**: References the language in which the quiz was taken.
 - **`quiz_type_id`**: References the `quiz_types` table to identify the quiz format.
-- **`score`**: Stores the user's performance score for the quiz (0-100).
+- **`score`**: Stores the user's performance score for the quiz as a floating point number.
 - **`completed_at`**: Logs the timestamp when the quiz was completed.
 
 ---
@@ -131,12 +159,14 @@ The `languages` table stores supported languages for flashcards and user prefere
 CREATE TABLE languages (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL, -- The name of the language (e.g., Spanish, Japanese)
+    code VARCHAR(10) NOT NULL  -- The language code (e.g., 'en', 'es', 'ja')
 );
 ```
 
 ### **Column Descriptions**
 - **`id`**: Unique identifier for the language.
 - **`name`**: The name of the language (e.g., Spanish, Japanese).
+- **`code`**: ISO language code for the language.
 
 ---
 
@@ -151,7 +181,8 @@ CREATE TABLE waitlist (
     email VARCHAR(255) NOT NULL UNIQUE, -- Email of the user on the waitlist
     name VARCHAR(255), -- Optional name of the user
     reason TEXT, -- Reason for joining the waitlist
-    approved BOOLEAN DEFAULT FALSE -- Whether the user has been approved
+    approved BOOLEAN DEFAULT FALSE, -- Whether the user has been approved
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the entry was created
 );
 ```
 
@@ -161,6 +192,7 @@ CREATE TABLE waitlist (
 - **`name`**: Optional name of the user.
 - **`reason`**: Reason for joining the waitlist.
 - **`approved`**: Whether the user has been approved.
+- **`created_at`**: When the waitlist entry was created.
 
 ---
 
@@ -175,7 +207,8 @@ CREATE TABLE catalogs (
     name VARCHAR(255) NOT NULL, -- Name of the catalog
     description TEXT, -- Description of the catalog
     visibility VARCHAR(50) DEFAULT 'private', -- Visibility of the catalog (public/private)
-    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE -- Owner of the catalog
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Owner of the catalog
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the catalog was created
 );
 ```
 
@@ -185,6 +218,7 @@ CREATE TABLE catalogs (
 - **`description`**: Description of the catalog.
 - **`visibility`**: Visibility of the catalog (public/private).
 - **`owner_id`**: References the user who owns the catalog.
+- **`created_at`**: When the catalog was created.
 
 ---
 
@@ -215,18 +249,19 @@ The `flashcard_shares` table manages sharing of individual flashcards.
 ### **Schema**
 ```sql
 CREATE TABLE flashcard_shares (
-    id SERIAL PRIMARY KEY,
     flashcard_id INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
     shared_with_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    shared_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the flashcard was shared
+    can_modify BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (flashcard_id, shared_with_id)
 );
 ```
 
 ### **Column Descriptions**
-- **`id`**: Unique identifier for the record.
-- **`flashcard_id`**: References the flashcard being shared.
-- **`shared_with_id`**: References the user with whom the flashcard is shared.
-- **`shared_at`**: Logs the timestamp when the flashcard was shared.
+- **`flashcard_id`**: References the flashcard being shared (part of composite primary key)
+- **`shared_with_id`**: References the user with whom the flashcard is shared (part of composite primary key)
+- **`can_modify`**: Whether the shared user can modify the flashcard
+- **`created_at`**: Logs the timestamp when the flashcard was shared
 
 ---
 
@@ -237,18 +272,19 @@ The `catalog_shares` table manages sharing of catalogs.
 ### **Schema**
 ```sql
 CREATE TABLE catalog_shares (
-    id SERIAL PRIMARY KEY,
     catalog_id INTEGER NOT NULL REFERENCES catalogs(id) ON DELETE CASCADE,
     shared_with_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    shared_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- When the catalog was shared
+    can_modify BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (catalog_id, shared_with_id)
 );
 ```
 
 ### **Column Descriptions**
-- **`id`**: Unique identifier for the record.
-- **`catalog_id`**: References the catalog being shared.
-- **`shared_with_id`**: References the user with whom the catalog is shared.
-- **`shared_at`**: Logs the timestamp when the catalog was shared.
+- **`catalog_id`**: References the catalog being shared (part of composite primary key)
+- **`shared_with_id`**: References the user with whom the catalog is shared (part of composite primary key)
+- **`can_modify`**: Whether the shared user can modify the catalog
+- **`created_at`**: Logs the timestamp when the catalog was shared
 
 ---
 
@@ -297,6 +333,12 @@ CREATE TABLE user_settings (
   - `catalog_flashcards` (links flashcards to catalogs)
   - `flashcard_shares` (manages sharing of individual flashcards)
 
+### **Languages Table**
+- The `languages` table is referenced by:
+  - `flashcards` (defines the language of each flashcard)
+  - `quizzes` (tracks quiz language settings)
+  - Referenced in user preferences through `user_settings.preferred_languages`
+
 ### **Quiz Types Table**
 - The `quiz_types` table is referenced by the `quizzes` table to define what type of quiz is being administered.
 
@@ -309,18 +351,25 @@ CREATE TABLE user_settings (
 
 ## **Example Data**
 
+### Users Table
+| id  | email              | username | is_admin | created_at                | updated_at                |
+|-----|-------------------|----------|----------|---------------------------|---------------------------|
+| 1   | quang@example.com | quang    | false    | 2025-04-08T09:00:00+00:00 | 2025-04-08T09:00:00+00:00 |
+| 2   | thuy@example.com  | thuy     | false    | 2025-04-08T09:30:00+00:00 | 2025-04-08T09:30:00+00:00 |
+| 3   | lan@example.com   | lan      | false    | 2025-04-08T10:00:00+00:00 | 2025-04-08T10:00:00+00:00 |
+
 ### Flashcards Table
-| id  | front  | back                                   | language_id | owner_id |
-|-----|--------|----------------------------------------|-------------|----------|
-| 1   | rain   | Precipitation in the form of water droplets. | 1           | 1        |
-| 2   | sunny  | Bright with sunlight.                 | 1           | 1        |
-| 3   | desk   | A piece of furniture with a flat surface for working. | 1           | 1        |
-| 4   | computer | An electronic device for storing and processing data. | 1           | 1        |
+| id  | front     | back                                        | language_id | owner_id | created_at                |
+|-----|-----------|---------------------------------------------|-------------|----------|---------------------------|
+| 1   | rain      | Precipitation in the form of water droplets | 1           | 1        | 2025-04-08T10:00:00+00:00 |
+| 2   | sunny     | Bright with sunlight                        | 1           | 1        | 2025-04-08T10:10:00+00:00 |
+| 3   | desk      | A piece of furniture with a flat surface    | 1           | 1        | 2025-04-08T10:20:00+00:00 |
+| 4   | computer  | An electronic device for data processing    | 1           | 1        | 2025-04-08T10:30:00+00:00 |
 
 ### User Flashcards Table
-| id  | user_id | flashcard_id | memory_strength | last_reviewed       | next_review         |
-|-----|---------|--------------|-----------------|---------------------|---------------------|
-| 1   | 1       | 1            | 80              | 2025-04-08 10:00:00 | 2025-04-15 10:00:00 |
+| id  | user_id | flashcard_id | memory_strength | last_reviewed              | next_review                 |
+|-----|---------|--------------|-----------------|---------------------------|----------------------------|
+| 1   | 1       | 1            | 0.8             | 2025-04-08T10:00:00+00:00 | 2025-04-15T10:00:00+00:00 |
 
 ### Quiz Types Table
 | id  | name                    |
@@ -332,27 +381,27 @@ CREATE TABLE user_settings (
 | 5   | True/False Judgments   |
 
 ### Quizzes Table
-| id  | user_id | flashcard_id | target_language | quiz_type_id | score | completed_at        |
-|-----|---------|--------------|-----------------|--------------|-------|---------------------|
-| 1   | 1       | 1            | Spanish         | 2            | 90    | 2025-04-08 10:30:00 |
+| id  | user_id | flashcard_id | language_id | quiz_type_id | score | completed_at              |
+|-----|---------|--------------|-------------|--------------|-------|---------------------------|
+| 1   | 1       | 1            | 1           | 2            | 90.0  | 2025-04-08T10:30:00+00:00 |
 
 ### Chatbot Interactions Table
-| id  | user_id | content               | timestamp           |
-|-----|---------|-----------------------|---------------------|
-| 1   | 1       | "What does Hola mean?"| 2025-04-08 11:00:00 |
+| id  | user_id | content               | timestamp                |
+|-----|---------|-----------------------|--------------------------|
+| 1   | 1       | "What does Hola mean?"| 2025-04-08T11:00:00+00:00 |
 
 ### Languages Table
-| id  | name     
-|-----|----------
-| 1   | Spanish  
-| 2   | Japanese 
+| id  | name     | code |
+|-----|----------|------|
+| 1   | Spanish  | es   |
+| 2   | Japanese | ja   |
 
 ### Catalogs Table
-| id  | name                | description                                | visibility | owner_id |
-|-----|---------------------|--------------------------------------------|------------|----------|
-| 1   | Weather Vocabulary  | Common weather-related terms and expressions | public     | 1        |
-| 2   | Office Vocabulary   | Essential office and workplace terminology | private    | 2        |
-| 3   | Interview Vocabulary| Key terms for job interviews and professional settings | private | 3        |
+| id  | name                | description                                | visibility | owner_id | created_at                |
+|-----|---------------------|--------------------------------------------|------------|----------|---------------------------|
+| 1   | Weather Vocabulary  | Common weather-related terms and expressions | public     | 1        | 2025-04-08T12:00:00+00:00 |
+| 2   | Office Vocabulary   | Essential office and workplace terminology | private    | 2        | 2025-04-08T12:30:00+00:00 |
+| 3   | Interview Vocabulary| Key terms for job interviews and professional settings | private | 3        | 2025-04-08T13:00:00+00:00 |
 
 ### Catalog Flashcards Table
 | id  | catalog_id | flashcard_id |
@@ -362,11 +411,23 @@ CREATE TABLE user_settings (
 | 3   | 2          | 3            |
 | 4   | 2          | 4            |
 
+### Flashcard Shares Table
+| flashcard_id | shared_with_id | can_modify | created_at                |
+|--------------|----------------|------------|---------------------------|
+| 1            | 2              | false      | 2025-04-08T12:00:00+00:00 |
+| 2            | 2              | false      | 2025-04-08T12:30:00+00:00 |
+
 ### Catalog Shares Table
-| id  | catalog_id | shared_with_id | shared_at           |
-|-----|------------|----------------|---------------------|
-| 1   | 1          | 2              | 2025-04-08 12:00:00 |
-| 2   | 2          | 1              | 2025-04-08 12:30:00 |
-| 3   | 3          | 2              | 2025-04-08 13:00:00 |
+| catalog_id | shared_with_id | can_modify | created_at                |
+|------------|----------------|------------|---------------------------|
+| 1          | 2              | false      | 2025-04-08T12:00:00+00:00 |
+| 2          | 1              | false      | 2025-04-08T12:30:00+00:00 |
+| 3          | 2              | false      | 2025-04-08T13:00:00+00:00 |
+
+### User Settings Table
+| user_id | allow_duplicates | default_visibility | preferred_languages | ui_preferences                    |
+|---------|-----------------|-------------------|-------------------|----------------------------------|
+| 1       | false           | private           | "es,ja"           | {"theme": "light", "layout": "grid"} |
+| 2       | true            | public            | "es"              | {"theme": "dark"}                    |
 
 

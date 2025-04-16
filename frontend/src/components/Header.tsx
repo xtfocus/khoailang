@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationIcon from './NotificationIcon';
@@ -44,30 +44,6 @@ export function Header() {
             </button>
           )}
           <h1 className="text-2xl font-bold text-gray-900">KhoaiLang</h1>
-          
-          {/* Add Navigation Links */}
-          {userProfile && (
-            <nav className="ml-8 space-x-6">
-              <Link 
-                to="/dashboard"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Dashboard
-              </Link>
-              <Link 
-                to="/flashcards"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Flashcards
-              </Link>
-              <Link 
-                to="/catalogs"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Catalogs
-              </Link>
-            </nav>
-          )}
         </div>
         
         {userProfile && (
