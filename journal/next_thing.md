@@ -1,22 +1,33 @@
 #codebase 
-1. Generate quizzes: Probably we should do this right after importing words from UI --> save quiz to 'quizzes' table (so they can be reused later)
-Details:
-In backend, after generate flashcards, we also need to generate quizzes.
+1. Quiz population:
+Currently, we let user select language after import txt files. This should be reversed: 
+1st step: User must select the language
+2nd step: User must select the file to upload
+
+3rd step: Processing:
+After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id"
+After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
+- generate cards (generate-flashcards), and save to database
+- generate quizzes and save to database.
+
+Otherwise, if it's a duplciate, we simply retrieve the existing flashcard of the word so we can generate quizzes for it. Unless, there are already at least 1 quiz for that flashcard, then we let user decide if they want to select, deselect that word for import.
+
+How generate quizzes works: Will be performed after generate-flashcards is called
+
 For each flashcard, we:
 - detect if the flashcard is a phrase or a word (using LLM)
 - if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
 - if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
+- generate quiz: For each quiz types, we use a prompt and structured output format (LLM). 
+    - we might need to store quiz content as a json string, and at test time we render them differently based on their type. Currently quizzes table don't have this column I think
+- if the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
+
 
 (LLM usage is demonstrated in words.py)
 
-(Then we need to think of how we store these derivative data! For now, for simplicity, we don't store them, only store quizzes)
-
-Then we generate quizzes using the information above (also using LLM).
 About quiz types that we can generate, check out #file:quizzes_design.md  (Ignore the types marked as "REMOVED")
 
-Input to create quizzes: target language (language_id in flashcards table) target word and its definition (front and back in `flashcards` table) +  quiz types (quiz_type table) ).
-
-
+Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
 
 2. Quiz session:
 
@@ -102,19 +113,7 @@ This creates an adaptive spaced repetition effect:
 
 
 
-Things we haven't covered: Catalog word uniqueness enforcement. Need to check this quick if it has been implemented. See if we import word and add them to catalog at the same time, and duplication happens, we might need to warn user that duplicates x,z,y will not be added to catalog.
-Catalog_flashcards doesn't have "front" column so if we want to check uniqueness we need to join it with flashcard table.
-Also we need to make sure each catalog belongs to a single language. So, if user choose English language during import step , we can only suggest English catalogs in that step.
-So far we havnt' cover create catalogs. We should allow user to create their catalog from cards they have access to (shared or own). To create a catalog, simply enter a form:
-- Catalog's name: type in
-- Target Language: drop down select
-- Add flashcards to it. Here they can use a dropdown to browse accessible flashcards (cards they have access to and belong to the target language). Then clicking confirm.
-
-Must Enforce word uniqueness in catalog. If violated, warning user and recommend deselecting that word/flashcard.
-Each catalog might have a lot of flashcards (up to 250), so the UI design must takes this into consideration.
-
-
-Bell and whistle:
+# Organized view of catalogs (needed when the number of catalogs grows)
  - There should be a table to represent user's collection. Then we allow user to discover public catalog, and add to their current collection.
  - Technically we can use `shared_with_id`  in catalog_shares to monitor such thing but it wouldn't be very clear if user actively finds that catalog of is shared with.
 - Public categories should 
