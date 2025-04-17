@@ -1,11 +1,13 @@
 #codebase 
-1. Quiz population:
-
-Quiz population: Currently, we let user select language after import txt files. This should be reversed: 
+0.  Fix step order in import
+Currently, we let user select language after import txt files. This should be reversed: 
 
 - 1st step: User must select the language 
 - 2nd step: User must select the file to upload
 - 3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
+
+1. Quiz population:
+
 
     After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id" After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
 
@@ -52,13 +54,15 @@ Quiz population: Currently, we let user select language after import txt files. 
             result = json.loads(response.output[0].content[0].text)
     ```
     
-    we will store quiz content as a json string in the `content` table (and at user test time, we render them differently based on their type, but that's a later story). 
+    we will store quiz content as a json string in the `content` column of quizzes table (and at user test time, we render them differently based on their type, but that's a later story). 
 
     When you generate quizzes, must also consider the meaning of the word, demonstrated in the 'back' text of the word 
 
+    Use one schema for each openai api call
+
     If the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
     
-    About quiz types that we can generate, check out #file:quizzes_design.md (Ignore the types marked as "REMOVED")
+    About quiz types that we can generate, check out #file:quizzes_design.md 
     
     Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
 

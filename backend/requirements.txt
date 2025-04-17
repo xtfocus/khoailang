@@ -8,4 +8,5 @@ pydantic[email]==2.6.1
 python-jose==3.4.0
 python-multipart==0.0.9
 sqlalchemy==2.0.40
+loguru==0.7.2
 uvicorn==0.34.0
