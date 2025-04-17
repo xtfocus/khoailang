@@ -1,38 +1,72 @@
 #codebase 
 1. Quiz population:
-Currently, we let user select language after import txt files. This should be reversed: 
-1st step: User must select the language
-2nd step: User must select the file to upload
 
-3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
+Quiz population: Currently, we let user select language after import txt files. This should be reversed: 
 
-After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id"
-After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
-- generate cards (generate-flashcards), and save to database
-- generate quizzes and save to database.
+- 1st step: User must select the language 
+- 2nd step: User must select the file to upload
+- 3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
 
-Otherwise, if it's a duplciate, we simply retrieve the existing flashcard of the word so we can generate quizzes for it. Unless, there are already at least 1 quiz for that flashcard, then we let user decide if they want to select, deselect that word for import.
+    After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id" After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
 
-How generate quizzes works: Will be performed after generate-flashcards is called
-
-For each flashcard, we:
-- detect if the flashcard is a phrase or a word (using LLM).
-- if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
-- if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
-- generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM.
-    - we might need to store quiz content as a json string, and at test time we render them differently based on their type. Currently quizzes table don't have this column I think
-    - when genering quizzes, we must also consider the meaning of the word, demonstrated in the 'back' text of the word
+    - generate cards (generate-flashcards), and 
+    - save to database generate quizzes and save to database. Otherwise, if it's a duplciate, we simply retrieve the existing flashcard of the word so we can generate quizzes for it. Unless, there are already at least 1 quiz for that flashcard, then we let user decide if they want to select, deselect that word for import.
     
-- if the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
+    How generate quizzes works: Will be performed after generate-flashcards is called
+    
+    For each flashcard, we:
+    
+    - detect if the flashcard is a phrase or a word (using LLM).
+    - 
+    - if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
+    - 
+    - if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
+    - 
+    - generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM. Basically you must provide a schema that suits the task, and use the `responses.create` api:
+    ```python
+    VALIDATE_SCHEMA = {
+        "type": "object",
+        "properties": {"valid_words": {"type": "array", "items": {"type": "string"}}},
+        "required": ["valid_words"],
+        "additionalProperties": False,
+    }
+    
+    response = await clients["openai"].responses.create(
+                model=configs["app_config"].OPENAI_MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": "You are a word validation assistant. Filter out any invalid entries that are not words or meaningful phrases.",
+                    },
+                    {"role": "user", "content": "\n".join(words)},
+                ],
+                text={
+                    "format": {#  all following keys are required by OpenAI
+                        "type": "json_schema",
+                        "name": "valid_words",
+                        "schema": VALIDATE_SCHEMA,
+                        "strict": True,
+                    }
+                },
+            )
+            result = json.loads(response.output[0].content[0].text)
+    ```
+    
+    we will store quiz content as a json string (and at user test time, we render them differently based on their type, but that's a later story). Currently quizzes table don't have `content` column, create it.
 
+    I think when genering quizzes, we must also consider the meaning of the word, demonstrated in the 'back' text of the word 
 
-(LLM usage is demonstrated in words.py)
+    If the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
+    
+    About quiz types that we can generate, check out #file:quizzes_design.md (Ignore the types marked as "REMOVED")
+    
+    Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
 
-About quiz types that we can generate, check out #file:quizzes_design.md  (Ignore the types marked as "REMOVED")
+Notes: 
+- Use loguru and put logs so I know what happening in the backend 
+- During generating flashcards and quizzes we should use websocket connections to keep the connection alive, otherwise we will be met with timeout error, yuck. With websocket you must also handle authentication properly
 
-Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
-
-During generating flashcards and quizzes we should use websocket connections to keep the connection alive, otherwise we will be met with timeout error, yuck.
+- Keep all the quiz-generating code in app/utils
 
 
 

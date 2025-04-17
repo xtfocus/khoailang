@@ -1,6 +1,20 @@
-Great catch! Let's fix that 👇
+Currently in database, the quiz types are defined under `quiz_types` tables, including:
 
-Here’s the **revised list** with examples and **balanced difficulty scores from 1 to 5**, where:
+id  name  difficulty
+1	Definition-to-Word (Multiple-Choice)	1
+2	Word-to-Definition (Multiple-Choice)	1
+3	Synonym Selection (Multiple-Choice)	2
+4	Antonym Selection (Multiple-Choice)	2
+5	Open-Ended Cloze (Cloze)	5
+6	Multiple-Choice Cloze (Multiple-Choice)	3
+7	Scenario Identification (Multiple-Choice)	3
+8	Word to Proverb (Multiple-Choice)	4
+9	Proverb to Word (Multiple-Choice)	4
+10	Proverb to Word (Cloze)	5
+11	Meaning Validation (True/False)	1
+12	Usage Validation (True/False)	2
+
+
 
 - 🌱 **1 = Very Easy** (recognition, familiar words)
 - ✏️ **2 = Easy** (basic recall)
