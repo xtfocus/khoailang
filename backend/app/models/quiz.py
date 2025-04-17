@@ -20,6 +20,7 @@ class Quiz(Base):
     language_id = Column(Integer, ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False)
     quiz_type_id = Column(Integer, ForeignKey("quiz_types.id", ondelete="RESTRICT"), nullable=False)
     score = Column(Float)
+    content = Column(String, nullable=False)  # Store quiz content as JSON string
     completed_at = Column(DateTime(timezone=True), server_default=func.now())
 
     quiz_type = relationship("QuizType", back_populates="quizzes")

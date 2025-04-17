@@ -52,9 +52,9 @@ Quiz population: Currently, we let user select language after import txt files. 
             result = json.loads(response.output[0].content[0].text)
     ```
     
-    we will store quiz content as a json string (and at user test time, we render them differently based on their type, but that's a later story). Currently quizzes table don't have `content` column, create it.
+    we will store quiz content as a json string in the `content` table (and at user test time, we render them differently based on their type, but that's a later story). 
 
-    I think when genering quizzes, we must also consider the meaning of the word, demonstrated in the 'back' text of the word 
+    When you generate quizzes, must also consider the meaning of the word, demonstrated in the 'back' text of the word 
 
     If the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
     
