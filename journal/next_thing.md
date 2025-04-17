@@ -4,7 +4,8 @@ Currently, we let user select language after import txt files. This should be re
 1st step: User must select the language
 2nd step: User must select the file to upload
 
-3rd step: Processing:
+3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
+
 After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id"
 After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
 - generate cards (generate-flashcards), and save to database
@@ -15,11 +16,13 @@ Otherwise, if it's a duplciate, we simply retrieve the existing flashcard of the
 How generate quizzes works: Will be performed after generate-flashcards is called
 
 For each flashcard, we:
-- detect if the flashcard is a phrase or a word (using LLM)
+- detect if the flashcard is a phrase or a word (using LLM).
 - if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
 - if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
-- generate quiz: For each quiz types, we use a prompt and structured output format (LLM). 
+- generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM.
     - we might need to store quiz content as a json string, and at test time we render them differently based on their type. Currently quizzes table don't have this column I think
+    - when genering quizzes, we must also consider the meaning of the word, demonstrated in the 'back' text of the word
+    
 - if the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
 
 
@@ -28,6 +31,10 @@ For each flashcard, we:
 About quiz types that we can generate, check out #file:quizzes_design.md  (Ignore the types marked as "REMOVED")
 
 Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
+
+During generating flashcards and quizzes we should use websocket connections to keep the connection alive, otherwise we will be met with timeout error, yuck.
+
+
 
 2. Quiz session:
 
