@@ -23,6 +23,12 @@ interface ApiError {
   detail: string;
 }
 
+interface ImportStatus {
+  status: 'processing' | 'completed';
+  progress: number;
+  message: string;
+}
+
 export function ImportWords(): JSX.Element {
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
@@ -32,7 +38,9 @@ export function ImportWords(): JSX.Element {
   const [selectedCatalogs, setSelectedCatalogs] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'language' | 'upload' | 'preview'>('language');
+  const [step, setStep] = useState<'language' | 'upload' | 'preview' | 'importing'>('language');
+  const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
 
   // Initial fetch of languages
   useEffect(() => {
@@ -69,6 +77,34 @@ export function ImportWords(): JSX.Element {
     };
     fetchCatalogs();
   }, [selectedLanguage]);
+
+  // Poll import status
+  useEffect(() => {
+    if (!taskId || step !== 'importing') return;
+
+    const pollStatus = async () => {
+      try {
+        const response = await axios.get(`/api/words/import/${taskId}/status`);
+        setImportStatus(response.data);
+        
+        if (response.data.status === 'completed') {
+          const event = new CustomEvent('wordImportSuccess', {
+            detail: { count: words.filter(w => w.selected).length }
+          });
+          window.dispatchEvent(event);
+          navigate('/dashboard');
+        }
+      } catch (err) {
+        const error = err as AxiosError<ApiError>;
+        setError(error.response?.data?.detail || 'Failed to check import status');
+        setStep('preview');
+        setImporting(false);
+      }
+    };
+
+    const interval = setInterval(pollStatus, 2000); // Poll every 2 seconds
+    return () => clearInterval(interval);
+  }, [taskId, step, navigate, words]);
 
   const handleLanguageSelect = () => {
     if (!selectedLanguage) {
@@ -116,9 +152,10 @@ export function ImportWords(): JSX.Element {
     
     setImporting(true);
     setError(null);
+    setStep('importing');
 
     try {
-      await axios.post(
+      const response = await axios.post(
         `/api/words/import?language_id=${selectedLanguage}`, 
         {
           words: selectedWords.map(w => ({
@@ -129,17 +166,18 @@ export function ImportWords(): JSX.Element {
         }
       );
 
-      const event = new CustomEvent('wordImportSuccess', {
-        detail: { count: selectedWords.length }
-      });
-      window.dispatchEvent(event);
-      
-      // Navigate to dashboard instead of resetting to language selection
-      navigate('/dashboard');
+      if (response.data.status === 'processing') {
+        setTaskId(response.data.task_id);
+        setImportStatus({
+          status: 'processing',
+          progress: 0,
+          message: response.data.message
+        });
+      }
     } catch (err) {
       const error = err as AxiosError<ApiError>;
       setError(error.response?.data?.detail || 'Failed to import words');
-    } finally {
+      setStep('preview');
       setImporting(false);
     }
   };
@@ -178,11 +216,6 @@ export function ImportWords(): JSX.Element {
                 Next
               </button>
             </div>
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg">
-                {error}
-              </div>
-            )}
           </div>
         )}
 
@@ -337,6 +370,24 @@ export function ImportWords(): JSX.Element {
               >
                 {importing ? 'Importing...' : 'Import Words'}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Importing Progress */}
+        {step === 'importing' && importStatus && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Importing Words</h2>
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+              <div className="space-y-4">
+                <div className="h-2 bg-gray-200 rounded-full">
+                  <div 
+                    className="h-2 bg-indigo-600 rounded-full transition-all duration-500"
+                    style={{ width: `${importStatus.progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-gray-600">{importStatus.message}</p>
+              </div>
             </div>
           </div>
         )}

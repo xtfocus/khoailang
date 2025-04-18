@@ -1,4 +1,5 @@
 import json
+import httpx
 from typing import Any, Dict, List
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -7,10 +8,32 @@ from app.dependencies.auth import get_current_user
 from app.models.catalog import Catalog
 from app.models.flashcard import Flashcard
 from app.models.chat import Language
-from app.celery_app import validate_words_batch, generate_flashcards_batch
+from app.models.quiz import Quiz, QuizType
+from app.config import get_settings
+from app.celery_app import validate_words_batch, generate_flashcards_batch, generate_quizzes_batch
+from app.schemas.openai_schemas import (
+    VALIDATE_SCHEMA,
+    FLASHCARD_SCHEMA,
+    WORD_TYPE_SCHEMA,
+    WORD_RELATIONS_SCHEMA,
+    RELATED_PHRASES_SCHEMA,
+    QUIZ_TYPE_SCHEMAS,
+)
 from celery import group
 
 router = APIRouter()
+
+configs = {"app_config": get_settings()}
+clients = {
+    "openai": httpx.AsyncClient(
+        base_url="https://api.openai.com/v1",
+        headers={"Authorization": f"Bearer {configs['app_config'].OPENAI_API_KEY}"},
+        timeout=60.0
+    )
+}
+
+# Store import tasks in memory (in production, use Redis/database)
+import_tasks = {}
 
 @router.post("/txt/extract")
 async def extract_words_from_txt(file: UploadFile = File(...)):
@@ -120,16 +143,25 @@ async def import_words(
 
     try:
         imported_words = []
+        quiz_types = [quiz_type.name for quiz_type in db.query(QuizType).all()]
+        
+        # Create flashcards first
+        flashcard_quiz_tasks = []
         for word in words:
+            front = word["front"]
+            back = word["back"]
+            
+            # Create flashcard
             flashcard = Flashcard(
-                front=word["front"],
-                back=word["back"],
+                front=front,
+                back=back,
                 language_id=language_id,
                 owner_id=current_user.id,
             )
             db.add(flashcard)
-            db.flush()
-
+            db.flush()  # Get flashcard ID
+            
+            # Link to catalogs if any
             if catalog_ids:
                 for catalog_id in catalog_ids:
                     catalog = (
@@ -140,20 +172,196 @@ async def import_words(
                         )
                         .first()
                     )
-
                     if catalog:
                         flashcard.catalogs.append(catalog)
+            
+            # Start quiz generation task
+            task = generate_quizzes_batch.delay(
+                flashcard={"front": front, "back": back},
+                quiz_types=quiz_types
+            )
+            flashcard_quiz_tasks.append((flashcard.id, task))
+            imported_words.append(front)
 
-            imported_words.append(word["front"])
+        db.commit()  # Commit flashcards and catalog links immediately
 
-        db.commit()
+        # Store tasks for status checking
+        task_id = f"import_{current_user.id}_{language_id}_{len(import_tasks)}"
+        import_tasks[task_id] = {
+            "tasks": flashcard_quiz_tasks,
+            "total": len(flashcard_quiz_tasks),
+            "completed": 0,
+            "user_id": current_user.id,
+            "language_id": language_id  # Store language_id in task info
+        }
 
         return {
-            "status": "success",
-            "imported_count": len(imported_words),
+            "status": "processing",
+            "task_id": task_id,
+            "message": f"Started importing {len(imported_words)} words. Quizzes are being generated.",
             "imported_words": imported_words,
         }
 
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/import/{task_id}/status")
+async def get_import_status(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Check the status of an import task"""
+    if task_id not in import_tasks:
+        raise HTTPException(status_code=404, detail="Import task not found")
+    
+    task_info = import_tasks[task_id]
+    if task_info["user_id"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to check this import task")
+
+    # Check task status and save completed quizzes
+    try:
+        # Get quiz type IDs mapping
+        quiz_type_map = {
+            qt.name: qt.id 
+            for qt in db.query(QuizType).all()
+        }
+        
+        completed = 0
+        for flashcard_id, task in task_info["tasks"]:
+            if task.ready():
+                if not task.failed():
+                    # Save quizzes if not already saved
+                    quizzes = task.get()
+                    for quiz_data in quizzes:
+                        quiz = Quiz(
+                            flashcard_id=flashcard_id,
+                            quiz_type_id=quiz_type_map[quiz_data["type"]],
+                            content=json.dumps(quiz_data["content"]),
+                            user_id=current_user.id,  # Use user_id instead of owner_id
+                            language_id=task_info["language_id"]
+                        )
+                        db.add(quiz)
+                completed += 1
+
+        task_info["completed"] = completed
+        progress = (completed / task_info["total"]) * 100
+
+        if completed == task_info["total"]:
+            db.commit()
+            # Clean up completed task
+            del import_tasks[task_id]
+            return {
+                "status": "completed",
+                "progress": 100,
+                "message": "Import completed successfully"
+            }
+        
+        return {
+            "status": "processing",
+            "progress": progress,
+            "message": f"Processing... {completed}/{task_info['total']} words completed"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def detect_word_type(word: str, meaning: str) -> Dict:
+    response = await clients["openai"].responses.create(
+        model=configs["app_config"].OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": "You are a language analysis assistant. Determine if the given text is a single word or a phrase.",
+            },
+            {"role": "user", "content": f"Text: {word}\nMeaning: {meaning}"},
+        ],
+        text={
+            "format": {
+                "type": "json_schema", 
+                "name": "word_type",
+                "schema": WORD_TYPE_SCHEMA,
+                "strict": True,
+            }
+        },
+    )
+    return json.loads(response.output[0].content[0].text)
+
+async def get_word_relations(word: str, meaning: str) -> Dict:
+    response = await clients["openai"].responses.create(
+        model=configs["app_config"].OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": "You are a language assistant. Generate synonyms and antonyms for the given word.",
+            },
+            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}"},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "word_relations",
+                "schema": WORD_RELATIONS_SCHEMA,
+                "strict": True,
+            }
+        },
+    )
+    return json.loads(response.output[0].content[0].text)
+
+async def get_related_phrases(word: str, meaning: str) -> Dict:
+    response = await clients["openai"].responses.create(
+        model=configs["app_config"].OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": "You are a language assistant. Generate phrases or proverbs that share meaning with the given word.",
+            },
+            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}"},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "related_phrases",
+                "schema": RELATED_PHRASES_SCHEMA,
+                "strict": True,
+            }
+        },
+    )
+    return json.loads(response.output[0].content[0].text)
+
+async def generate_quiz(quiz_type: str, word: str, meaning: str, word_info: Dict = None) -> Dict:
+    schema = QUIZ_TYPE_SCHEMAS[quiz_type]
+    system_prompt = "You are a quiz generation assistant. Generate a quiz based on the given word and its meaning."
+    
+    if quiz_type in ["Synonym Selection (Multiple-Choice)", "Antonym Selection (Multiple-Choice)"]:
+        if not word_info or "synonyms" not in word_info or "antonyms" not in word_info:
+            return None
+        additional_context = f"\nSynonyms: {', '.join(word_info['synonyms'])}\nAntonyms: {', '.join(word_info['antonyms'])}"
+    elif quiz_type in ["Word to Proverb (Multiple-Choice)", "Proverb to Word (Multiple-Choice)", "Proverb to Word (Cloze)"]:
+        if not word_info or "phrases" not in word_info:
+            return None
+        additional_context = f"\nRelated Phrases: {json.dumps(word_info['phrases'])}"
+    else:
+        additional_context = ""
+
+    response = await clients["openai"].responses.create(
+        model=configs["app_config"].OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}{additional_context}\nQuiz Type: {quiz_type}"},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "quiz",
+                "schema": schema,
+                "strict": True,
+            }
+        },
+    )
+    return json.loads(response.output[0].content[0].text)

@@ -1,23 +1,12 @@
 #codebase 
 1. Quiz population:
-
-    After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist: by checking in the "flashcards" table, using "front" and "language_id" and "owner_id"
-
-    After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
-
-    - generate cards (generate-flashcards). This is currently a Celery task. 
-    
-    How generate quizzes works: Will be performed after generate-flashcards is called
-    
+Now I want to introduce a quiz generation feature. Quiz generation will be triggered when user clicks "Import Words" button.
+    That means Import Words will generate quizzes for words, finally save flashcards and quizzes to database.
     For each flashcard, we:
-    
     - detect if the flashcard is a phrase or a word (using LLM).
-    - 
     - if it's a word, use LLM to generate up to 5 synonyms and upto 5 antonyms
-    - 
     - if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
-    - 
-    - generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM. Basically you must provide a schema that suits the task, and use the `responses.create` api as demonstrated below:
+    - generate quizzes: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM. Basically you must provide a schema that suits the task, and use the `responses.create` api as demonstrated below:
     ```python
     VALIDATE_SCHEMA = {
         "type": "object",
@@ -48,16 +37,10 @@
     ```
     
     we will store quiz content as a json string in the `content` column of quizzes table (and at user test time, we render them differently based on their type, but that's a later story). 
-
     When you generate quizzes, must also consider the meaning of the word, demonstrated in the 'back' text of the word 
-
-    Use one schema for each openai api call, as demonstrated in the example above
-
+    Use one schema for each openai api call, as demonstrated in the example above. For example, use one schema for each quiz type
     About quiz types that we can generate, check out #file:quizzes_design.md. 
-    
     Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
-
-
 
 2. Quiz session:
 
