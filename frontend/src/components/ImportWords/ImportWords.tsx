@@ -86,7 +86,7 @@ export function ImportWords(): JSX.Element {
     if (nonDuplicateWords.length > 0) {
       try {
         const generateResponse = await axios.post(
-          '/api/words/generate-flashcards',
+          `/api/words/generate-flashcards?language_id=${selectedLanguage}`,
           nonDuplicateWords.map(w => w.front)
         );
         

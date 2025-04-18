@@ -1,115 +1,16 @@
 import json
-from asyncio import Semaphore, gather
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.auth import get_current_user
-from app.globals import clients, configs
 from app.models.catalog import Catalog
 from app.models.flashcard import Flashcard
-from fastapi import (APIRouter, Body, Depends, File, HTTPException, Query,
-                     Request, UploadFile)
-from sqlalchemy.orm import Session
+from app.models.chat import Language
+from app.celery_app import validate_words_batch, generate_flashcards_batch
+from celery import group
 
 router = APIRouter()
-
-# Define JSON schemas for OpenAI responses
-VALIDATE_SCHEMA = {
-    "type": "object",
-    "properties": {"valid_words": {"type": "array", "items": {"type": "string"}}},
-    "required": ["valid_words"],
-    "additionalProperties": False,
-}
-
-FLASHCARD_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "flashcards": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {"front": {"type": "string"}, "back": {"type": "string"}},
-                "required": ["front", "back"],
-                "additionalProperties": False,
-            },
-        }
-    },
-    "required": ["flashcards"],
-    "additionalProperties": False,
-}
-
-
-async def validate_batch(batch: list[str], language_id: int, semaphore: Semaphore):
-    """Validate a batch of words using the LLM with semaphore control."""
-    async with semaphore:
-        try:
-            # Get language name from database
-            db = next(get_db())
-            language = db.query(Language).filter(Language.id == language_id).first()
-            if not language:
-                raise HTTPException(status_code=400, detail="Invalid language ID")
-
-            response = await clients["openai"].responses.create(
-                model=configs["app_config"].OPENAI_MODEL,
-                input=[
-                    {
-                        "role": "system",
-                        "content": f"You are a helpful assistant that validates {language.name} words and phrases. Return only valid {language.name} words or phrases, filtering out any non-{language.name} text.",
-                    },
-                    {"role": "user", "content": "\n".join(batch)},
-                ],
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "validation_result",
-                        "schema": VALIDATE_SCHEMA,
-                        "strict": True,
-                    }
-                },
-            )
-            result = json.loads(response.output[0].content[0].text)
-            return result.get("valid_words", [])
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Error validating words: {str(e)}"
-            )
-
-
-async def generate_flashcards_batch(batch: list[str], language_id: int, semaphore: Semaphore):
-    """Generate flashcards for a batch of words using the LLM with semaphore control."""
-    async with semaphore:
-        try:
-            # Get language name from database
-            db = next(get_db())
-            language = db.query(Language).filter(Language.id == language_id).first()
-            if not language:
-                raise HTTPException(status_code=400, detail="Invalid language ID")
-
-            response = await clients["openai"].responses.create(
-                model=configs["app_config"].OPENAI_MODEL,
-                input=[
-                    {
-                        "role": "system",
-                        "content": f"Generate concise definitions in English for the following {language.name} words or phrases. Return as a JSON array of objects with 'front' (word) and 'back' (definition) properties.",
-                    },
-                    {"role": "user", "content": "\n".join(batch)},
-                ],
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "flashcards",
-                        "schema": FLASHCARD_SCHEMA,
-                        "strict": True,
-                    }
-                },
-            )
-            result = json.loads(response.output[0].content[0].text)
-            return result.get("flashcards", [])
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Error generating flashcards: {str(e)}"
-            )
-
 
 @router.post("/txt/extract")
 async def extract_words_from_txt(file: UploadFile = File(...)):
@@ -120,42 +21,65 @@ async def extract_words_from_txt(file: UploadFile = File(...)):
     words = list(set([w.strip() for w in words if w.strip()]))
     return {"words": words}
 
-
 @router.post("/validate")
-async def validate_words(words: List[str], language_id: int = Query(...)):
-    """Validate words using LLM in batches with concurrency control."""
-    # Create semaphore with configured limit
-    semaphore = Semaphore(configs["app_config"].OPENAI_CONCURRENT_REQUESTS)
+async def validate_words(
+    words: List[str], 
+    language_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Validate words using LLM in batches with Celery tasks."""
+    try:
+        # Get language name
+        language = db.query(Language).filter(Language.id == language_id).first()
+        if not language:
+            raise HTTPException(status_code=400, detail="Invalid language ID")
 
-    # Split words into batches of 10
-    batches = [words[i : i + 10] for i in range(0, len(words), 10)]
+        # Split words into batches of 10
+        batches = [words[i:i+10] for i in range(0, len(words), 10)]
+        
+        # Create group of tasks
+        job = group(validate_words_batch.s(batch, language.name) for batch in batches)
+        result = job.apply_async()
+        
+        # Wait for all tasks to complete
+        batch_results = result.get(timeout=300)  # 5 minutes timeout
+        
+        # Combine results
+        valid_words = [word for batch in batch_results for word in batch]
+        return {"valid_words": valid_words}
 
-    # Process batches with semaphore control
-    results = await gather(*[validate_batch(batch, language_id, semaphore) for batch in batches])
-
-    # Combine results
-    valid_words = [word for batch_result in results for word in batch_result]
-    return {"valid_words": valid_words}
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error validating words: {str(e)}")
 
 @router.post("/generate-flashcards")
-async def generate_flashcards(words: List[str], language_id: int = Query(...)):
-    """Generate flashcards for words using LLM in batches with concurrency control."""
-    # Create semaphore with configured limit
-    semaphore = Semaphore(configs["app_config"].OPENAI_CONCURRENT_REQUESTS)
+async def generate_flashcards(
+    words: List[str], 
+    language_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Generate flashcards using LLM in batches with Celery tasks."""
+    try:
+        # Get language name
+        language = db.query(Language).filter(Language.id == language_id).first()
+        if not language:
+            raise HTTPException(status_code=400, detail="Invalid language ID")
 
-    # Split words into batches of 10
-    batches = [words[i : i + 10] for i in range(0, len(words), 10)]
+        # Split words into batches of 10
+        batches = [words[i:i+10] for i in range(0, len(words), 10)]
+        
+        # Create group of tasks
+        job = group(generate_flashcards_batch.s(batch, language.name) for batch in batches)
+        result = job.apply_async()
+        
+        # Wait for all tasks to complete
+        batch_results = result.get(timeout=300)  # 5 minutes timeout
+        
+        # Combine results
+        flashcards = [card for batch in batch_results for card in batch]
+        return {"flashcards": flashcards}
 
-    # Process batches with semaphore control
-    results = await gather(
-        *[generate_flashcards_batch(batch, language_id, semaphore) for batch in batches]
-    )
-
-    # Combine results
-    flashcards = [card for batch_result in results for card in batch_result]
-    return {"flashcards": flashcards}
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating flashcards: {str(e)}")
 
 @router.post("/check-duplicates")
 async def check_duplicates(
@@ -169,14 +93,8 @@ async def check_duplicates(
         .filter(Flashcard.front.in_(words))
         .all()
     )
-
     duplicates = [word[0] for word in existing_words]
-
     return {"duplicates": duplicates, "has_duplicates": len(duplicates) > 0}
-
-
-from app.models.chat import Language
-
 
 @router.get("/languages")
 async def get_languages(db: Session = Depends(get_db)):
@@ -185,15 +103,12 @@ async def get_languages(db: Session = Depends(get_db)):
         languages = db.query(Language).order_by(Language.name).all()
         return {"languages": [{"id": lang.id, "name": lang.name} for lang in languages]}
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error fetching languages: {str(e)}"
-        )
-
+        raise HTTPException(status_code=500, detail=f"Error fetching languages: {str(e)}")
 
 @router.post("/import")
 async def import_words(
-    language_id: int = Query(...),  # required query parameter
-    body: Dict[str, Any] = Body(...),  # request body with words and catalog_ids
+    language_id: int = Query(...),
+    body: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
