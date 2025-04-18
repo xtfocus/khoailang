@@ -1,17 +1,11 @@
 #codebase 
-0.  Fix step order in import
-Currently, we let user select language after import txt files. We need the change that: 
-
-- 1st step: User must select the language 
-- 2nd step: User must select the file to upload
-- 3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
-
 1. Quiz population:
 
-    After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id" After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
+    After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist: by checking in the "flashcards" table, using "front" and "language_id" and "owner_id"
 
-    - generate cards (generate-flashcards), and 
-    - save to database generate quizzes and save to database. Otherwise, if it's a duplciate, we simply retrieve the existing flashcard of the word so we can generate quizzes for it. Unless, there are already at least 1 quiz for that flashcard, then we let user decide if they want to select, deselect that word for import.
+    After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
+
+    - generate cards (generate-flashcards). This is currently a Celery task. 
     
     How generate quizzes works: Will be performed after generate-flashcards is called
     
@@ -23,7 +17,7 @@ Currently, we let user select language after import txt files. We need the chang
     - 
     - if it's a word, use LLM to generate up to 3 phrases/proverbs that share meaning with the flashcard
     - 
-    - generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM. Basically you must provide a schema that suits the task, and use the `responses.create` api:
+    - generate quiz: For each quiz types, we use a prompt and structured output format (LLM). See words.py for how to use LLM. Basically you must provide a schema that suits the task, and use the `responses.create` api as demonstrated below:
     ```python
     VALIDATE_SCHEMA = {
         "type": "object",
@@ -59,16 +53,9 @@ Currently, we let user select language after import txt files. We need the chang
 
     Use one schema for each openai api call, as demonstrated in the example above
 
-    If the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
-    
     About quiz types that we can generate, check out #file:quizzes_design.md. 
     
     Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
-
-Notes: 
-- Use loguru and put logs so I know what happening in the backend 
-- Generating flashcards and quizzes should be run as Celery task. We might need to create another service for that.
-- Keep all the quiz-generating code in app/utils
 
 
 
