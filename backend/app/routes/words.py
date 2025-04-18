@@ -39,16 +39,22 @@ FLASHCARD_SCHEMA = {
 }
 
 
-async def validate_batch(batch: list[str], semaphore: Semaphore):
+async def validate_batch(batch: list[str], language_id: int, semaphore: Semaphore):
     """Validate a batch of words using the LLM with semaphore control."""
     async with semaphore:
         try:
+            # Get language name from database
+            db = next(get_db())
+            language = db.query(Language).filter(Language.id == language_id).first()
+            if not language:
+                raise HTTPException(status_code=400, detail="Invalid language ID")
+
             response = await clients["openai"].responses.create(
                 model=configs["app_config"].OPENAI_MODEL,
                 input=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant that validates words and phrases. Return only valid words or phrases.",
+                        "content": f"You are a helpful assistant that validates {language.name} words and phrases. Return only valid {language.name} words or phrases, filtering out any non-{language.name} text.",
                     },
                     {"role": "user", "content": "\n".join(batch)},
                 ],
@@ -69,16 +75,22 @@ async def validate_batch(batch: list[str], semaphore: Semaphore):
             )
 
 
-async def generate_flashcards_batch(batch: list[str], semaphore: Semaphore):
+async def generate_flashcards_batch(batch: list[str], language_id: int, semaphore: Semaphore):
     """Generate flashcards for a batch of words using the LLM with semaphore control."""
     async with semaphore:
         try:
+            # Get language name from database
+            db = next(get_db())
+            language = db.query(Language).filter(Language.id == language_id).first()
+            if not language:
+                raise HTTPException(status_code=400, detail="Invalid language ID")
+
             response = await clients["openai"].responses.create(
                 model=configs["app_config"].OPENAI_MODEL,
                 input=[
                     {
                         "role": "system",
-                        "content": "Generate concise definitions for the following words or phrases. Return as a JSON array of objects with 'front' (word) and 'back' (definition) properties.",
+                        "content": f"Generate concise definitions in English for the following {language.name} words or phrases. Return as a JSON array of objects with 'front' (word) and 'back' (definition) properties.",
                     },
                     {"role": "user", "content": "\n".join(batch)},
                 ],
@@ -110,7 +122,7 @@ async def extract_words_from_txt(file: UploadFile = File(...)):
 
 
 @router.post("/validate")
-async def validate_words(words: List[str]):
+async def validate_words(words: List[str], language_id: int = Query(...)):
     """Validate words using LLM in batches with concurrency control."""
     # Create semaphore with configured limit
     semaphore = Semaphore(configs["app_config"].OPENAI_CONCURRENT_REQUESTS)
@@ -119,7 +131,7 @@ async def validate_words(words: List[str]):
     batches = [words[i : i + 10] for i in range(0, len(words), 10)]
 
     # Process batches with semaphore control
-    results = await gather(*[validate_batch(batch, semaphore) for batch in batches])
+    results = await gather(*[validate_batch(batch, language_id, semaphore) for batch in batches])
 
     # Combine results
     valid_words = [word for batch_result in results for word in batch_result]
@@ -127,7 +139,7 @@ async def validate_words(words: List[str]):
 
 
 @router.post("/generate-flashcards")
-async def generate_flashcards(words: List[str]):
+async def generate_flashcards(words: List[str], language_id: int = Query(...)):
     """Generate flashcards for words using LLM in batches with concurrency control."""
     # Create semaphore with configured limit
     semaphore = Semaphore(configs["app_config"].OPENAI_CONCURRENT_REQUESTS)
@@ -137,7 +149,7 @@ async def generate_flashcards(words: List[str]):
 
     # Process batches with semaphore control
     results = await gather(
-        *[generate_flashcards_batch(batch, semaphore) for batch in batches]
+        *[generate_flashcards_batch(batch, language_id, semaphore) for batch in batches]
     )
 
     # Combine results
