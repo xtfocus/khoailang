@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app.models.catalog import Catalog, CatalogFlashcard, CatalogVisibility
+from app.models.catalog import Catalog, CatalogFlashcard, CatalogVisibility, UserCatalogCollection
 from app.models.flashcard import Flashcard
 from app.models.sharing import CatalogShare
 from app.models.chat import Language
@@ -21,9 +21,136 @@ async def get_owned_catalogs(
 ):
     """Get catalogs owned by the current user"""
     catalogs = db.query(Catalog)\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
         .filter(Catalog.owner_id == current_user.id)\
         .all()
-    return catalogs
+    
+    return [
+        {
+            "id": catalog.id,
+            "name": catalog.name,
+            "description": catalog.description,
+            "visibility": catalog.visibility,
+            "created_at": catalog.created_at,
+            "owner": {
+                "username": catalog.owner.username,
+                "email": catalog.owner.email
+            },
+            "target_language": catalog.target_language.name
+        }
+        for catalog in catalogs
+    ]
+
+@router.get("/public", response_model=List[CatalogBase])
+async def get_public_catalogs(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all public catalogs"""
+    catalogs = db.query(Catalog)\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
+        .filter(Catalog.visibility == CatalogVisibility.PUBLIC)\
+        .all()
+    return [
+        {
+            "id": catalog.id,
+            "name": catalog.name,
+            "description": catalog.description,
+            "visibility": catalog.visibility,
+            "created_at": catalog.created_at,
+            "owner": {
+                "username": catalog.owner.username,
+                "email": catalog.owner.email
+            },
+            "target_language": catalog.target_language.name,
+            "is_in_collection": db.query(UserCatalogCollection)\
+                .filter(
+                    UserCatalogCollection.user_id == current_user.id,
+                    UserCatalogCollection.catalog_id == catalog.id
+                ).first() is not None
+        }
+        for catalog in catalogs
+    ]
+
+@router.get("/shared", response_model=List[CatalogBase])
+async def get_shared_catalogs(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get catalogs shared with the current user"""
+    catalogs = db.query(Catalog)\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
+        .filter(
+            Catalog.id.in_(
+                db.query(CatalogShare.catalog_id)
+                .filter(CatalogShare.shared_with_id == current_user.id)
+            )
+        )\
+        .all()
+    return [
+        {
+            "id": catalog.id,
+            "name": catalog.name,
+            "description": catalog.description,
+            "visibility": catalog.visibility,
+            "created_at": catalog.created_at,
+            "owner": {
+                "username": catalog.owner.username,
+                "email": catalog.owner.email
+            },
+            "target_language": catalog.target_language.name
+        }
+        for catalog in catalogs
+    ]
+
+@router.get("/collection", response_model=List[CatalogBase])
+async def get_user_collection(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all catalogs in user's collection (owned + shared + added public)"""
+    catalogs = db.query(Catalog)\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
+        .filter(
+            or_(
+                Catalog.owner_id == current_user.id,  # Owned catalogs
+                Catalog.id.in_(  # Shared catalogs
+                    db.query(CatalogShare.catalog_id)
+                    .filter(CatalogShare.shared_with_id == current_user.id)
+                ),
+                Catalog.id.in_(  # Added public catalogs
+                    db.query(UserCatalogCollection.catalog_id)
+                    .filter(UserCatalogCollection.user_id == current_user.id)
+                )
+            )
+        ).all()
+    return [
+        {
+            "id": catalog.id,
+            "name": catalog.name,
+            "description": catalog.description,
+            "visibility": catalog.visibility,
+            "created_at": catalog.created_at,
+            "owner": {
+                "username": catalog.owner.username,
+                "email": catalog.owner.email
+            },
+            "target_language": catalog.target_language.name
+        }
+        for catalog in catalogs
+    ]
 
 @router.get("/accessible", response_model=List[CatalogBase])
 async def get_accessible_catalogs(
@@ -78,6 +205,45 @@ async def get_accessible_flashcards(
     
     return flashcards
 
+@router.get("/accessible-by-language/{language_id}", response_model=List[CatalogBase])
+async def get_accessible_catalogs_by_language(
+    language_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all catalogs the user owns (can edit) that contain flashcards in the specified language"""
+    catalogs = db.query(Catalog)\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
+        .filter(
+            Catalog.owner_id == current_user.id,  # Only return owned catalogs
+            # Filter by catalogs that have at least one flashcard in the specified language
+            Catalog.id.in_(
+                db.query(CatalogFlashcard.catalog_id)
+                .join(Flashcard)
+                .filter(Flashcard.language_id == language_id)
+                .distinct()
+            )
+        ).all()
+    
+    return [
+        {
+            "id": catalog.id,
+            "name": catalog.name,
+            "description": catalog.description,
+            "visibility": catalog.visibility,
+            "created_at": catalog.created_at,
+            "owner": {
+                "username": catalog.owner.username,
+                "email": catalog.owner.email
+            },
+            "target_language": catalog.target_language.name
+        }
+        for catalog in catalogs
+    ]
+
 @router.post("/create", response_model=CatalogResponse)
 async def create_catalog(
     catalog: CatalogCreate,
@@ -129,6 +295,7 @@ async def create_catalog(
         # Create catalog
         new_catalog = Catalog(
             name=catalog.name,
+            description=catalog.description,
             owner_id=current_user.id,
             target_language_id=catalog.target_language_id,
             visibility=catalog.visibility,
@@ -184,83 +351,78 @@ async def create_catalog(
             detail=f"A catalog with the name '{catalog.name}' already exists"
         )
 
-@router.post("/share")
-async def share_catalog(
-    request: Dict,
+@router.post("/{catalog_id}/add-to-collection")
+async def add_to_collection(
+    catalog_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Share a catalog with other users by email"""
-    catalog_id = request.get("catalogId")
-    emails = request.get("emails", [])
-
-    if not catalog_id or not emails:
-        raise HTTPException(
-            status_code=400, 
-            detail="Missing catalog ID or email addresses"
-        )
-
-    # Verify catalog exists and is owned by current user
+    """Add a public catalog to user's collection"""
+    # Verify catalog exists and is public
     catalog = db.query(Catalog).filter(
         Catalog.id == catalog_id,
-        Catalog.owner_id == current_user.id
+        Catalog.visibility == CatalogVisibility.PUBLIC
     ).first()
 
     if not catalog:
         raise HTTPException(
-            status_code=403,
-            detail="Catalog doesn't exist or you don't have permission to share it"
+            status_code=404,
+            detail="Catalog not found or is not public"
         )
 
-    # Get target users
-    target_users = db.query(User).filter(
-        User.email.in_(emails),
-        User.is_admin == False  # Don't share with admin users
-    ).all()
+    # Check if already in collection
+    existing = db.query(UserCatalogCollection).filter(
+        UserCatalogCollection.user_id == current_user.id,
+        UserCatalogCollection.catalog_id == catalog_id
+    ).first()
 
-    invalid_emails = set(emails) - {user.email for user in target_users}
-    if invalid_emails:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Users not found: {', '.join(invalid_emails)}"
-        )
+    if existing:
+        return {"message": "Catalog already in collection"}
 
-    # Track sharing status
-    already_shared = []
-    newly_shared = []
-
-    # Create shares
-    for user in target_users:
-        # Check if already shared
-        existing_share = db.query(CatalogShare).filter(
-            CatalogShare.catalog_id == catalog.id,
-            CatalogShare.shared_with_id == user.id
-        ).first()
-        
-        if existing_share:
-            already_shared.append(user.email)
-        else:
-            share = CatalogShare(
-                catalog_id=catalog.id,
-                shared_with_id=user.id
-            )
-            db.add(share)
-            newly_shared.append(user.email)
+    # Add to collection
+    collection_entry = UserCatalogCollection(
+        user_id=current_user.id,
+        catalog_id=catalog_id
+    )
+    db.add(collection_entry)
 
     try:
         db.commit()
-        return {
-            "message": "Catalog sharing status",
-            "details": {
-                "newlyShared": newly_shared,
-                "alreadyShared": already_shared
-            }
-        }
+        return {"message": "Catalog added to collection"}
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="Failed to share catalog"
+            detail="Failed to add catalog to collection"
+        )
+
+@router.delete("/{catalog_id}/remove-from-collection")
+async def remove_from_collection(
+    catalog_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove a catalog from user's collection"""
+    # Delete collection entry if exists
+    result = db.query(UserCatalogCollection).filter(
+        UserCatalogCollection.user_id == current_user.id,
+        UserCatalogCollection.catalog_id == catalog_id
+    ).delete()
+
+    if result == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Catalog not found in collection"
+        )
+
+    try:
+        db.commit()
+        return {"message": "Catalog removed from collection"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to remove catalog from collection"
         )
 
 @router.patch("/{catalog_id}/visibility")
@@ -348,21 +510,86 @@ async def get_catalog_by_id(
         ]
     }
 
-@router.get("/accessible-by-language/{language_id}", response_model=List[CatalogBase])
-async def get_accessible_catalogs_by_language(
-    language_id: int,
+@router.delete("/{catalog_id}")
+async def delete_catalog(
+    catalog_id: int,
+    delete_flashcards: bool = False,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Get all catalogs the user owns (can edit) that contain flashcards in the specified language"""
-    catalogs = db.query(Catalog).filter(
-        Catalog.owner_id == current_user.id,  # Only return owned catalogs
-        # Filter by catalogs that have at least one flashcard in the specified language
-        Catalog.id.in_(
-            db.query(CatalogFlashcard.catalog_id)
-            .join(Flashcard)
-            .filter(Flashcard.language_id == language_id)
-            .distinct()
+    """Delete a catalog and optionally its associated flashcards"""
+    # Verify catalog exists and is owned by current user
+    catalog = db.query(Catalog).filter(
+        Catalog.id == catalog_id,
+        Catalog.owner_id == current_user.id
+    ).first()
+
+    if not catalog:
+        raise HTTPException(
+            status_code=404,
+            detail="Catalog not found or you don't have permission to delete it"
         )
-    ).all()
-    return catalogs
+
+    try:
+        if delete_flashcards:
+            # Delete flashcards owned by the user in this catalog
+            flashcard_ids = [f.id for f in catalog.flashcards if f.owner_id == current_user.id]
+            if flashcard_ids:
+                db.query(Flashcard).filter(Flashcard.id.in_(flashcard_ids)).delete(synchronize_session=False)
+        
+        # Delete the catalog (this will automatically delete catalog_flashcards entries due to CASCADE)
+        db.delete(catalog)
+        db.commit()
+        
+        return {
+            "message": f"Catalog '{catalog.name}' deleted successfully" + 
+                      (f" along with {len(flashcard_ids)} flashcards" if delete_flashcards else "")
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete catalog"
+        )
+
+@router.delete("/{catalog_id}/flashcards/{flashcard_id}")
+async def remove_flashcard_from_catalog(
+    catalog_id: int,
+    flashcard_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove a flashcard from a catalog (owner only)"""
+    # Verify catalog exists and is owned by current user
+    catalog = db.query(Catalog).filter(
+        Catalog.id == catalog_id,
+        Catalog.owner_id == current_user.id
+    ).first()
+
+    if not catalog:
+        raise HTTPException(
+            status_code=404,
+            detail="Catalog not found or you don't have permission to modify it"
+        )
+
+    # Remove the flashcard from the catalog
+    result = db.query(CatalogFlashcard).filter(
+        CatalogFlashcard.catalog_id == catalog_id,
+        CatalogFlashcard.flashcard_id == flashcard_id
+    ).delete()
+
+    if result == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Flashcard not found in this catalog"
+        )
+
+    try:
+        db.commit()
+        return {"message": "Flashcard removed from catalog successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to remove flashcard from catalog"
+        )

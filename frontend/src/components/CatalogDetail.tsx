@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Share2, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Share2, ArrowLeft, Trash2 } from 'lucide-react';
+import { Book } from 'lucide-react';
 import axios from '../config/axios';
 
 interface CatalogFlashcard {
@@ -87,6 +88,8 @@ export function CatalogDetail() {
   const [error, setError] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const fetchCatalog = async () => {
@@ -146,6 +149,44 @@ export function CatalogDetail() {
       setShareModalOpen(false);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to share catalog');
+    }
+  };
+
+  const handleToggleCard = (flashcardId: string) => {
+    const newSelection = new Set(selectedCards);
+    if (selectedCards.has(flashcardId)) {
+      newSelection.delete(flashcardId);
+    } else {
+      newSelection.add(flashcardId);
+    }
+    setSelectedCards(newSelection);
+  };
+
+  const handleRemoveFromCatalog = async () => {
+    if (!catalog || selectedCards.size === 0) return;
+    
+    try {
+      for (const flashcardId of selectedCards) {
+        await axios.delete(`/api/catalogs/${catalog.id}/flashcards/${flashcardId}`);
+      }
+      const response = await axios.get(`/api/catalogs/${id}`);
+      setCatalog(response.data);
+      setSelectedCards(new Set());
+    } catch (err) {
+      setError('Failed to remove flashcards from catalog');
+    }
+  };
+
+  const handleDeleteCatalog = async (deleteFlashcards: boolean) => {
+    if (!catalog) return;
+    
+    try {
+      await axios.delete(`/api/catalogs/${catalog.id}?delete_flashcards=${deleteFlashcards}`);
+      navigate('/catalogs');
+    } catch (err) {
+      setError('Failed to delete catalog');
+    } finally {
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -234,35 +275,110 @@ export function CatalogDetail() {
                     <Share2 className="w-4 h-4 mr-2" />
                     Share
                   </button>
+                  {selectedCards.size > 0 && (
+                    <button
+                      onClick={handleRemoveFromCatalog}
+                      className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                    >
+                      Remove Selected
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Catalog
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 className="text-lg font-semibold mb-4">Delete Catalog</h3>
+                <p className="text-gray-600 mb-6">
+                  Would you also like to delete all flashcards that you own in this catalog?
+                  This action cannot be undone.
+                </p>
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCatalog(false)}
+                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                  >
+                    Delete Catalog Only
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCatalog(true)}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Delete All
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4">Flashcards</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Word
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Translation
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {catalog.flashcards.map((flashcard) => (
-                    <tr key={flashcard.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">{flashcard.front}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{flashcard.back}</td>
+            {catalog.flashcards.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <Book className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No flashcards</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  This catalog is empty.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {catalog.is_owner && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                          <span className="sr-only">Select</span>
+                        </th>
+                      )}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Word
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Meaning
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {catalog.flashcards.map((flashcard) => (
+                      <tr 
+                        key={flashcard.id}
+                        className={selectedCards.has(flashcard.id) ? 'bg-blue-50' : ''}
+                      >
+                        {catalog.is_owner && (
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedCards.has(flashcard.id)}
+                              onChange={() => handleToggleCard(flashcard.id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                        )}
+                        <td className="px-6 py-4 whitespace-nowrap">{flashcard.front}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{flashcard.back}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

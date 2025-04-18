@@ -5,6 +5,7 @@ from app.models.catalog import CatalogVisibility
 
 class CatalogCreate(BaseModel):
     name: str
+    description: Optional[str] = None
     target_language_id: int
     flashcard_ids: List[int]
     visibility: CatalogVisibility = CatalogVisibility.PRIVATE
@@ -36,6 +37,7 @@ class CatalogBase(BaseModel):
     created_at: datetime
     owner: CatalogOwner
     target_language: str
+    is_in_collection: Optional[bool] = None
 
     class Config:
         from_attributes = True

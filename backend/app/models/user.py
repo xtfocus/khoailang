@@ -19,3 +19,8 @@ class User(Base):
     flashcards = relationship("UserFlashcard", back_populates="user")
     owned_flashcards = relationship("Flashcard", back_populates="owner")
     chat_interactions = relationship("ChatbotInteraction", back_populates="user")
+    collected_catalogs = relationship(
+        "UserCatalogCollection",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )

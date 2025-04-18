@@ -40,3 +40,18 @@ class CatalogFlashcard(Base):
     id = Column(Integer, primary_key=True, index=True)
     catalog_id = Column(Integer, ForeignKey("catalogs.id", ondelete="CASCADE"), nullable=False)
     flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
+
+class UserCatalogCollection(Base):
+    __tablename__ = "user_catalog_collections"
+    
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    catalog_id = Column(Integer, ForeignKey("catalogs.id", ondelete="CASCADE"), primary_key=True)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="collected_catalogs")
+    catalog = relationship("Catalog")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'catalog_id', name='uq_user_catalog_collection'),
+    )

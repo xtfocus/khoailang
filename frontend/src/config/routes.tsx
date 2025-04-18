@@ -15,6 +15,7 @@ import { FlashcardTable } from '../components/FlashcardTable';
 import { CreateCatalog } from '../components/CreateCatalog';
 import { CatalogList } from '../components/CatalogList';
 import { CatalogDetail } from '../components/CatalogDetail';
+import { CollectionFlashcards } from '../components/CollectionFlashcards';
 
 export interface RouteConfig {
   path?: string; // Make path optional since index routes don't need it
@@ -123,6 +124,15 @@ export const routes: RouteConfig[] = [
     title: 'View Flashcards',
     description: 'View and manage your flashcards',
     breadcrumb: 'Flashcards'
+  },
+  {
+    path: '/flashcards/collection',
+    element: <ProtectedRoute element={<CollectionFlashcards />} requireUser />,
+    requireUser: true,
+    requireAdmin: false,
+    title: 'Collection Flashcards',
+    description: 'View flashcards in a collection',
+    breadcrumb: 'Collection Flashcards'
   },
   {
     path: '/profile',

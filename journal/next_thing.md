@@ -81,9 +81,3 @@ This creates an adaptive spaced repetition effect:
 
     A mistake → drops memory strength and shows the word sooner.---
 
-
-
-# Organized view of catalogs (needed when the number of catalogs grows)
- - There should be a table to represent user's collection. Then we allow user to discover public catalog, and add to their current collection.
- - Technically we can use `shared_with_id`  in catalog_shares to monitor such thing but it wouldn't be very clear if user actively finds that catalog of is shared with.
-- Public categories should 

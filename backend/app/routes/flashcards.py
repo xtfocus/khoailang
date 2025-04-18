@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, func, distinct
+from sqlalchemy import or_, func, distinct, and_
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Flashcard, UserFlashcard, User
-from app.models.catalog import CatalogFlashcard, Catalog
+from app.models.catalog import CatalogFlashcard, Catalog, UserCatalogCollection, CatalogVisibility
 from app.models.sharing import CatalogShare
 from app.dependencies.auth import get_current_user
 from typing import List
@@ -120,6 +120,71 @@ async def get_user_stats(
         "ownedCatalogs": owned_catalogs,
         "sharedCatalogs": shared_catalogs
     }
+
+@router.get("/collection/count")
+async def get_collection_flashcard_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get total number of unique flashcards from user's collection"""
+    # Get count of all flashcards that are either:
+    # 1. Owned by the user (regardless of catalog membership)
+    # 2. From public catalogs in user's collection
+    count = db.query(func.count(distinct(Flashcard.id)))\
+        .outerjoin(CatalogFlashcard)\
+        .outerjoin(Catalog)\
+        .outerjoin(UserCatalogCollection)\
+        .filter(
+            or_(
+                Flashcard.owner_id == current_user.id,  # All owned flashcards
+                and_(
+                    Catalog.visibility == CatalogVisibility.PUBLIC,  # From public catalogs
+                    UserCatalogCollection.user_id == current_user.id  # That are in user's collection
+                )
+            )
+        ).scalar()
+
+    return {"count": count or 0}
+
+@router.get("/collection")
+async def get_collection_flashcards(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all owned flashcards plus unique flashcards from user's collection"""
+    # Query all flashcards that are either:
+    # 1. Owned by the user (regardless of catalog membership)
+    # 2. In catalogs that are in user's collection
+    flashcards = db.query(Flashcard)\
+        .outerjoin(CatalogFlashcard)\
+        .outerjoin(Catalog)\
+        .outerjoin(UserCatalogCollection)\
+        .filter(
+            or_(
+                Flashcard.owner_id == current_user.id,  # All owned flashcards
+                and_(
+                    Catalog.visibility == CatalogVisibility.PUBLIC,  # From public catalogs
+                    UserCatalogCollection.user_id == current_user.id  # That are in user's collection
+                )
+            )
+        )\
+        .distinct()\
+        .all()
+
+    return [
+        {
+            "id": f.id,
+            "front": f.front,
+            "back": f.back,
+            "isOwner": f.owner_id == current_user.id,
+            "language": {
+                "id": f.language_id,
+                "name": f.language.name
+            } if f.language else None,
+            "authorName": f.owner.username or f.owner.email.split('@')[0]
+        }
+        for f in flashcards
+    ]
 
 @router.post("/delete")
 async def delete_flashcards(
