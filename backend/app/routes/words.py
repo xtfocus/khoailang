@@ -239,7 +239,7 @@ async def get_import_status(
                             flashcard_id=flashcard_id,
                             quiz_type_id=quiz_type_map[quiz_data["type"]],
                             content=json.dumps(quiz_data["content"]),
-                            user_id=current_user.id,  # Use user_id instead of owner_id
+                            user_id=current_user.id,
                             language_id=task_info["language_id"]
                         )
                         db.add(quiz)
@@ -267,101 +267,3 @@ async def get_import_status(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-async def detect_word_type(word: str, meaning: str) -> Dict:
-    response = await clients["openai"].responses.create(
-        model=configs["app_config"].OPENAI_MODEL,
-        input=[
-            {
-                "role": "system",
-                "content": "You are a language analysis assistant. Determine if the given text is a single word or a phrase.",
-            },
-            {"role": "user", "content": f"Text: {word}\nMeaning: {meaning}"},
-        ],
-        text={
-            "format": {
-                "type": "json_schema", 
-                "name": "word_type",
-                "schema": WORD_TYPE_SCHEMA,
-                "strict": True,
-            }
-        },
-    )
-    return json.loads(response.output[0].content[0].text)
-
-async def get_word_relations(word: str, meaning: str) -> Dict:
-    response = await clients["openai"].responses.create(
-        model=configs["app_config"].OPENAI_MODEL,
-        input=[
-            {
-                "role": "system",
-                "content": "You are a language assistant. Generate synonyms and antonyms for the given word.",
-            },
-            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}"},
-        ],
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "word_relations",
-                "schema": WORD_RELATIONS_SCHEMA,
-                "strict": True,
-            }
-        },
-    )
-    return json.loads(response.output[0].content[0].text)
-
-async def get_related_phrases(word: str, meaning: str) -> Dict:
-    response = await clients["openai"].responses.create(
-        model=configs["app_config"].OPENAI_MODEL,
-        input=[
-            {
-                "role": "system",
-                "content": "You are a language assistant. Generate phrases or proverbs that share meaning with the given word.",
-            },
-            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}"},
-        ],
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "related_phrases",
-                "schema": RELATED_PHRASES_SCHEMA,
-                "strict": True,
-            }
-        },
-    )
-    return json.loads(response.output[0].content[0].text)
-
-async def generate_quiz(quiz_type: str, word: str, meaning: str, word_info: Dict = None) -> Dict:
-    schema = QUIZ_TYPE_SCHEMAS[quiz_type]
-    system_prompt = "You are a quiz generation assistant. Generate a quiz based on the given word and its meaning."
-    
-    if quiz_type in ["Synonym Selection (Multiple-Choice)", "Antonym Selection (Multiple-Choice)"]:
-        if not word_info or "synonyms" not in word_info or "antonyms" not in word_info:
-            return None
-        additional_context = f"\nSynonyms: {', '.join(word_info['synonyms'])}\nAntonyms: {', '.join(word_info['antonyms'])}"
-    elif quiz_type in ["Word to Proverb (Multiple-Choice)", "Proverb to Word (Multiple-Choice)", "Proverb to Word (Cloze)"]:
-        if not word_info or "phrases" not in word_info:
-            return None
-        additional_context = f"\nRelated Phrases: {json.dumps(word_info['phrases'])}"
-    else:
-        additional_context = ""
-
-    response = await clients["openai"].responses.create(
-        model=configs["app_config"].OPENAI_MODEL,
-        input=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {"role": "user", "content": f"Word: {word}\nMeaning: {meaning}{additional_context}\nQuiz Type: {quiz_type}"},
-        ],
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "quiz",
-                "schema": schema,
-                "strict": True,
-            }
-        },
-    )
-    return json.loads(response.output[0].content[0].text)
