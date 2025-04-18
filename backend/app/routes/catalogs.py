@@ -32,7 +32,10 @@ async def get_accessible_catalogs(
 ):
     """Get all catalogs the user can access (owned + shared + public)"""
     catalogs = db.query(Catalog)\
-        .options(joinedload(Catalog.owner))\
+        .options(
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
         .filter(
             or_(
                 Catalog.owner_id == current_user.id,  # Owned catalogs
@@ -54,7 +57,8 @@ async def get_accessible_catalogs(
             "owner": {
                 "username": catalog.owner.username,
                 "email": catalog.owner.email
-            }
+            },
+            "target_language": catalog.target_language.name
         }
         for catalog in catalogs
     ]
@@ -126,7 +130,8 @@ async def create_catalog(
         new_catalog = Catalog(
             name=catalog.name,
             owner_id=current_user.id,
-            visibility=CatalogVisibility.PRIVATE,  # Default to private
+            target_language_id=catalog.target_language_id,
+            visibility=catalog.visibility,
         )
         db.add(new_catalog)
         db.flush()
@@ -153,6 +158,7 @@ async def create_catalog(
                 "username": current_user.username,
                 "email": current_user.email
             },
+            "target_language": language.name,
             "flashcards": [
                 {
                     "id": f.id,
@@ -296,8 +302,11 @@ async def get_catalog_by_id(
 ):
     """Get a catalog by ID if user has access to it"""
     catalog = db.query(Catalog)\
-        .options(joinedload(Catalog.flashcards).joinedload(Flashcard.language))\
-        .join(Catalog.owner)\
+        .options(
+            joinedload(Catalog.flashcards).joinedload(Flashcard.language),
+            joinedload(Catalog.owner),
+            joinedload(Catalog.target_language)
+        )\
         .filter(
             Catalog.id == catalog_id,
             or_(
@@ -327,6 +336,7 @@ async def get_catalog_by_id(
             "email": catalog.owner.email
         },
         "is_owner": catalog.owner_id == current_user.id,
+        "target_language": catalog.target_language.name,
         "flashcards": [
             {
                 "id": f.id,

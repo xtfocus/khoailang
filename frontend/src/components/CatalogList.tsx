@@ -14,6 +14,7 @@ interface Catalog {
     email: string;
   };
   is_owner: boolean;
+  target_language?: string;
 }
 
 interface ShareModalProps {
@@ -174,6 +175,9 @@ export function CatalogList() {
                     </div>
                     <div className="flex items-center">
                       <span>Created by {catalog.owner.username || catalog.owner.email.split('@')[0]}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span>Language: {catalog.target_language}</span>
                     </div>
                     {!catalog.is_owner && (
                       <button

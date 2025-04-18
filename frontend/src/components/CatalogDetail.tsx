@@ -22,6 +22,7 @@ interface Catalog {
     username: string;
     email: string;
   };
+  target_language: string;
 }
 
 interface ShareModalProps {
@@ -179,6 +180,7 @@ export function CatalogDetail() {
                 {catalog.description && (
                   <p className="text-gray-600 mb-2">{catalog.description}</p>
                 )}
+                <p className="text-gray-600 mb-2">Language: {catalog.target_language}</p>
                 <div className="flex items-center space-x-4 mb-2">
                   <div className={`flex items-center px-2 py-1 rounded text-sm ${
                     catalog.visibility === 'public'
@@ -249,9 +251,6 @@ export function CatalogDetail() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Translation
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Language
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -259,7 +258,6 @@ export function CatalogDetail() {
                     <tr key={flashcard.id}>
                       <td className="px-6 py-4 whitespace-nowrap">{flashcard.front}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{flashcard.back}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{flashcard.language}</td>
                     </tr>
                   ))}
                 </tbody>

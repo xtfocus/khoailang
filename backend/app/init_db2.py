@@ -83,6 +83,11 @@ def create_dummy_users(session: Session) -> dict:
 
 def create_dummy_catalogs(session: Session, users: dict) -> dict:
     """Create weather, office, and interview catalogs."""
+    # Fetch the English language ID since all catalogs are for English learning
+    english_language = session.query(Language).filter(Language.name == "English").first()
+    if not english_language:
+        raise ValueError("English language not found. Please run init_db.py first.")
+
     catalogs = {}
     catalog_data = [
         {
@@ -111,6 +116,7 @@ def create_dummy_catalogs(session: Session, users: dict) -> dict:
             description=data["description"],
             owner_id=data["owner"].id,
             visibility=data["visibility"],
+            target_language_id=english_language.id,
         )
         session.add(catalog)
         session.flush()

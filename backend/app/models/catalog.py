@@ -16,10 +16,12 @@ class Catalog(Base):
     description = Column(Text, nullable=True)
     visibility = Column(Enum(CatalogVisibility), default=CatalogVisibility.PRIVATE, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    target_language_id = Column(Integer, ForeignKey("languages.id", ondelete="RESTRICT"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     owner = relationship("User")
+    target_language = relationship("Language")
     flashcards = relationship(
         "Flashcard",
         secondary="catalog_flashcards",

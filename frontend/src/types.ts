@@ -54,6 +54,7 @@ export interface Catalog {
   };
   is_owner?: boolean;
   owner: CatalogOwner;
+  target_language: string;
 }
 
 export interface Language {

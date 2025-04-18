@@ -35,6 +35,7 @@ class CatalogBase(BaseModel):
     visibility: CatalogVisibility
     created_at: datetime
     owner: CatalogOwner
+    target_language: str
 
     class Config:
         from_attributes = True
