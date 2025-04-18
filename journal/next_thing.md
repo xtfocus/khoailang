@@ -1,13 +1,12 @@
 #codebase 
 0.  Fix step order in import
-Currently, we let user select language after import txt files. This should be reversed: 
+Currently, we let user select language after import txt files. We need the change that: 
 
 - 1st step: User must select the language 
 - 2nd step: User must select the file to upload
 - 3rd step: Processing: This can takes quite sometimes depends on the file size, so let's refuse if the file is over 1000 lines or any lines is over 30 characterse, notice user reason of refusal.
 
 1. Quiz population:
-
 
     After the txt file is uploaded: We populate flashcards and quizzes for words that dont yet exist. By checking in the "flashcards" table, using "front" and "language_id" and "owner_id" After checking duplicates and stuff, for non-duplicates (words that user doesn't own), we:
 
@@ -58,18 +57,17 @@ Currently, we let user select language after import txt files. This should be re
 
     When you generate quizzes, must also consider the meaning of the word, demonstrated in the 'back' text of the word 
 
-    Use one schema for each openai api call
+    Use one schema for each openai api call, as demonstrated in the example above
 
     If the word is a duplicate, and user selected it, we still generate quizzes for it, otherwise we do not.
     
-    About quiz types that we can generate, check out #file:quizzes_design.md 
+    About quiz types that we can generate, check out #file:quizzes_design.md. 
     
     Finally, After populating new quizzes and flashcards --> save to 'quizzes' and 'flashcards' tables.
 
 Notes: 
 - Use loguru and put logs so I know what happening in the backend 
-- During generating flashcards and quizzes we should use websocket connections to keep the connection alive, otherwise we will be met with timeout error, yuck. With websocket you must also handle authentication properly
-
+- Generating flashcards and quizzes should be run as Celery task. We might need to create another service for that.
 - Keep all the quiz-generating code in app/utils
 
 
